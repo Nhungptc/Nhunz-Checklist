@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nhunz's Checklist - Dashboard AI Vận Hành</title>
+    <title>Nhunz's Checklist - Master Dashboard AI</title>
     <!-- Import Fonts & Tailwind -->
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -38,16 +38,15 @@
         .soft-pastel-input { 
             width: 100%; background: #FFF9FA; border: 2.5px solid #F3F1F0; border-radius: 1.5rem; 
             padding: 1rem 1.4rem; font-size: 0.95rem; font-weight: 800; color: #5D4037 !important; 
-            outline: none; transition: all 0.3s; 
+            outline: none; transition: all 0.3s; text-align: center;
         }
         .soft-pastel-input:focus { border-color: #FFB7C5; background: white; box-shadow: 0 10px 30px rgba(255,183,197,0.1); }
         .soft-pastel-select { 
             width: 100%; background: #FFF9FA; border: 2.5px solid #F3F1F0; border-radius: 1.5rem; 
             padding: 0.8rem 1.2rem; font-size: 0.95rem; font-weight: 800; color: #5D4037 !important; 
-            outline: none; cursor: pointer; appearance: none; transition: all 0.3s;
+            outline: none; cursor: pointer; appearance: none; transition: all 0.3s; text-align: center; text-align-last: center;
         }
         .soft-pastel-select:focus { border-color: #FFB7C5; background: white; }
-        select option { color: #5D4037; background: white; }
         
         .board-scroll-area {
             max-height: 550px;
@@ -65,7 +64,9 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useCallback } = React;
 
-        const apiKey = ""; // Gemini API Key (tự động điền bởi môi trường)
+        // [KÍCH HOẠT] Gắn mã API Key của Nhunz vào đây
+        const apiKey = "AIzaSyBOKED9nk0PVe42cdcjpsrQ_recm3DSopQ"; 
+        
         const firebaseConfig = {
             apiKey: "AIzaSyArsu13URh82BfhQC1zE_7BfriMaNKdexs",
             authDomain: "checklist-e2800.firebaseapp.com",
@@ -130,7 +131,6 @@
             const [statusFilter, setStatusFilter] = useState('All');
             const [deptFilter, setDeptFilter] = useState('All');
 
-            // [SUY LUẬN] Đảm bảo lấy ngày chuẩn GMT+7 Việt Nam
             const getNow = () => {
                 const now = new Date();
                 return {
@@ -159,7 +159,7 @@
 
             const currentQuote = useMemo(() => dailyQuotes[new Date().getDay()], [dailyQuotes]);
 
-            // [CHƯA XÁC MINH] Sửa logic thông báo: Lấy ≤ ngày hiện tại, loại bỏ "Hoàn thành" và "Không làm"
+            // [CHƯA XÁC MINH] Logic nhắc nhở chuẩn: Loại bỏ "Không làm", bao gồm task hôm nay và quá hạn
             const tasksToRemind = useMemo(() => {
                 const todayStr = getNow().date;
                 return tasks.filter(t => 
@@ -213,8 +213,6 @@
                 if (fields.outcomeStatus === 'Hoàn thành') {
                     const now = getNow();
                     updateData.endDate = now.date; updateData.endTime = now.time;
-                } else if (fields.outcomeStatus && fields.outcomeStatus !== 'Hoàn thành') {
-                    updateData.endDate = ""; updateData.endTime = "";
                 }
                 await taskRef.update(updateData);
                 const original = tasks.find(t => t.id === id);
@@ -235,8 +233,8 @@
                 if (pending.length === 0) { setAiAnalysis({ text: "Nhunz ơi, hiện tại không còn task tồn động nào đâu 🌸", loading: false }); return; }
                 setAiAnalysis(prev => ({ ...prev, loading: true }));
                 
-                // [SUY LUẬN] Prompt tinh chỉnh: Gỡ bỏ metadata số lượng từ
-                const prompt = `Bạn là trợ lý AI của Nhunz - HRBP Manager tại GHN. Hãy chọn 1 task quan trọng nhất cần làm ngay hôm nay. Trả lời cực kỳ súc tích, ngọt ngào. TUYỆT ĐỐI KHÔNG ghi metadata hay số lượng từ ở cuối câu. Danh sách: ${pending.map(t => `- [${t.priority}] ${t.taskName} (Hạn: ${t.deadline})`).join('\n')}`;
+                // [SUY LUẬN] Tối ưu hóa "Lời huấn luyện" AI để gỡ bỏ metadata
+                const prompt = `Bạn là trợ lý ảo HRBP Manager của Nhunz tại GHN. Hãy chọn 1 task quan trọng nhất cần làm ngay hôm nay. Trả lời cực kỳ súc tích, ngọt ngào. TUYỆT ĐỐI KHÔNG ghi các con số thống kê hay số lượng từ. Danh sách: ${pending.map(t => `- [${t.priority}] ${t.taskName} (Hạn: ${t.deadline})`).join('\n')}`;
                 
                 try {
                     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
@@ -295,8 +293,8 @@
                 <div className="min-h-screen pb-20 main-app-container text-[#5D4037]">
                     <nav className="bg-white/40 backdrop-blur-md border-b border-pink-50 sticky top-0 z-50 px-8 py-5 flex justify-between items-center shadow-sm">
                         <div className="flex items-center gap-4">
-                            <div className="bg-[#FFB7C5] p-3 rounded-[1.2rem] text-white shadow-lg shadow-pink-100"><Icon name="Heart" fill="currentColor" /></div>
-                            <h1 className="text-xl font-black uppercase tracking-tighter">Nhunz's Checklist</h1>
+                            <div className="bg-[#FFB7C5] p-3 rounded-[1.2rem] text-white shadow-lg shadow-pink-100 hover:scale-105 transition-transform"><Icon name="Heart" fill="currentColor" /></div>
+                            <h1 className="text-xl font-black uppercase tracking-tighter leading-none">Nhunz's Checklist</h1>
                         </div>
                         <button 
                             onClick={() => setShowReminders(!showReminders)} 
@@ -314,7 +312,6 @@
                     {syncStatus.message && <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-full shadow-2xl bg-[#FFB7C5] text-[#5D4037] font-black text-sm animate-in slide-in-from-top-4"><Icon name="CheckCircle2" size={16} className="inline mr-2"/> {syncStatus.message}</div>}
 
                     <main className="max-w-[1700px] mx-auto p-8 text-center">
-                        {/* LỜI CHÚC TRÊN ĐẦU TRANG */}
                         <div className="mb-14">
                             <div className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-pink-50 rounded-full shadow-sm mb-6 animate-pulse">
                                 <Icon name="Sparkles" size={14} className="text-pink-400" />
@@ -324,23 +321,22 @@
                             <p className="text-pink-500 text-sm font-bold italic uppercase tracking-widest">{currentQuote.sub}</p>
                         </div>
 
-                        {/* [CHƯA XÁC MINH] Bảng nhắc nhở được khôi phục logic logic hiển thị chuẩn Master */}
                         {showReminders && (
                             <div className="mb-12 p-8 bg-rose-50 border-2 border-dashed border-rose-200 rounded-[3rem] animate-in slide-in-from-top-4 duration-500 relative shadow-inner">
                                 <button onClick={() => setShowReminders(false)} className="absolute top-6 right-6 text-rose-300 hover:text-rose-500 transition-colors"><Icon name="XCircle" size={24}/></button>
                                 <div className="flex items-center gap-4 mb-6 justify-center">
                                     <div className="p-3 bg-rose-500 rounded-2xl text-white shadow-lg shadow-rose-100 animate-pulse"><Icon name="Bell" size={24}/></div>
-                                    <div className="text-left text-center">
+                                    <div className="text-left">
                                         <h4 className="text-lg font-black uppercase tracking-widest leading-none text-[#5D4037]">NHẮC NHỞ QUAN TRỌNG</h4>
-                                        <p className="text-xs text-rose-400 font-bold italic mt-2 uppercase tracking-tighter">
-                                            {tasksToRemind.length > 0 ? `Nhunz có ${tasksToRemind.length} việc quá hạn hoặc cần làm gấp!` : "Tuyệt quá Nhunz ơi, hiện tại không còn việc nào quá hạn!"}
+                                        <p className="text-xs text-rose-400 font-bold italic mt-2 uppercase tracking-tighter text-center">
+                                            {tasksToRemind.length > 0 ? `Nhunz có ${tasksToRemind.length} việc quá hạn hoặc cần làm gấp!` : "Tuyệt quá Nhunz ơi, hiện tại không có việc nào quá hạn!"}
                                         </p>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                                     {tasksToRemind.length > 0 ? (
                                         tasksToRemind.map(t => (
-                                            <div key={t.id} className="bg-white/90 p-4 rounded-[1.8rem] border border-rose-100 flex justify-between items-center shadow-sm hover:shadow-md transition-shadow group">
+                                            <div key={t.id} className="bg-white/90 p-4 rounded-[1.8rem] border border-rose-100 flex justify-between items-center shadow-sm hover:shadow-md transition-shadow group text-left">
                                                 <span className="font-bold text-stone-700 truncate pr-4 group-hover:text-rose-600 transition-colors text-sm">{t.taskName}</span>
                                                 <span className="text-[10px] font-black bg-rose-100 px-3 py-1 rounded-full text-rose-500 shrink-0 uppercase tracking-tighter">XỬ LÝ NGAY</span>
                                             </div>
@@ -360,7 +356,7 @@
                                 <p className="text-[11px] font-bold text-stone-600 italic h-12 flex items-center justify-center overflow-hidden leading-tight px-2">
                                     {aiAnalysis.loading ? "Đang nghĩ..." : aiAnalysis.text}
                                 </p>
-                                <button onClick={analyzeWithAI} className="mt-3 px-4 py-1.5 bg-pink-50 text-pink-400 rounded-full text-[9px] font-black uppercase tracking-widest hover:bg-pink-100 transition-colors">Gợi ý ✨</button>
+                                <button onClick={analyzeWithAI} className="mt-3 px-4 py-1.5 bg-pink-50 text-pink-400 rounded-full text-[9px] font-black uppercase tracking-widest hover:bg-pink-100 transition-colors active:scale-95">Gợi ý ✨</button>
                             </div>
                         </div>
 
@@ -369,7 +365,7 @@
                                 {showForm ? <><Icon name="ChevronUp" size={22}/> THU GỌN</> : <><Icon name="Plus" size={22}/> THÊM CHECKLIST 🎀</>}
                             </button>
 
-                            {/* [SUY LUẬN] Căn giữa nhãn và bộ lọc lọc chuẩn Dashboard Master */}
+                            {/* [SUY LUẬN] Căn giữa tuyệt đối cho bộ lọc Dashboard Master */}
                             <div className="flex items-center gap-2 bg-white p-3 rounded-[2rem] border border-pink-50 shadow-sm overflow-hidden min-w-[320px] justify-center">
                                 <div className="flex-1 flex flex-col items-center border-r border-pink-50 px-4 text-center">
                                     <span className="text-[8px] font-black text-stone-400 uppercase tracking-widest mb-1 text-center w-full">PHÂN LOẠI</span>
@@ -419,7 +415,7 @@
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-10 pt-8 border-t border-stone-100 text-[#5D4037]">
                                         <div className="space-y-6">
-                                            <div className="grid grid-cols-2 gap-4">
+                                            <div className="grid grid-cols-2 gap-4 text-center">
                                                 <div className="flex flex-col gap-2 items-center"><label className="text-[10px] font-black uppercase tracking-tight text-center">PIC👤</label><input value={formData.pic} onChange={e => setFormData({...formData, pic: e.target.value})} className="soft-pastel-input text-[#5D4037] text-center" placeholder="Tên PIC..." /></div>
                                                 <div className="flex flex-col gap-2 items-center"><label className="text-[10px] font-black uppercase tracking-tight text-center">Link tài liệu 🔗</label><input type="url" value={formData.relevantLink} onChange={e => setFormData({...formData, relevantLink: e.target.value})} className="soft-pastel-input text-[#5D4037] text-center" placeholder="Dán link..." /></div>
                                             </div>
@@ -439,7 +435,7 @@
                             {Object.entries(groupedTasks).map(([groupName, groupTasks]) => (
                                 <section key={groupName} className="bg-white/60 backdrop-blur-sm rounded-[3rem] p-6 border-2 border-white shadow-xl flex flex-col h-full overflow-hidden text-[#5D4037]">
                                     <div className="flex items-center justify-between mb-5 px-3 text-[#5D4037]">
-                                        <div className="flex items-center gap-2 text-[#5D4037]"><div className="h-8 w-1.5 bg-[#FFB7C5] rounded-full shadow-sm shadow-pink-100"></div><h3 className="text-[11px] font-black uppercase tracking-[0.15em] leading-tight max-w-[130px]">{groupName}</h3></div>
+                                        <div className="flex items-center gap-2 text-[#5D4037]"><div className="h-8 w-1.5 bg-[#FFB7C5] rounded-full shadow-sm shadow-pink-100"></div><h3 className="text-[11px] font-black uppercase tracking-[0.15em] leading-tight max-w-[130px] text-center">{groupName}</h3></div>
                                         <span className="bg-pink-100 text-pink-600 px-2.5 py-0.5 rounded-full text-[9px] font-black shadow-inner">{groupTasks.length}</span>
                                     </div>
                                     <div className="board-scroll-area">
@@ -457,7 +453,7 @@
                                                                         <span className="text-[6px] font-black px-2 py-0.5 rounded-full bg-[#E3F2FD] text-[#1976D2] uppercase tracking-tighter shadow-sm">{task.pic || "NHUNZ"}</span>
                                                                         <span className="text-[6px] font-black px-2 py-0.5 rounded-full bg-pink-50 text-pink-400 uppercase tracking-tighter border border-pink-100">{task.classification}</span>
                                                                         <span className="text-[6px] font-black px-2 py-0.5 rounded-full bg-stone-100 text-stone-500 uppercase tracking-tighter">{task.project}</span>
-                                                                        <span className={`text-[6px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter ${getStatusTagStyle(task.outcomeStatus)}`}>{task.outcomeStatus}</span>
+                                                                        <span className={`text-[6px] font-black px-2 py-0.5 rounded-full uppercase tracking-tighter shadow-inner ${getStatusTagStyle(task.outcomeStatus)}`}>{task.outcomeStatus}</span>
                                                                     </div>
                                                                     <div className="flex flex-wrap gap-1.5 mb-1.5">
                                                                         <span className={getPriorityStyle(task.priority)}>{task.priority.split(' ')[0]}</span>
@@ -479,14 +475,14 @@
                                                         </div>
                                                         {expandedTask === task.id && (
                                                             <div className="px-5 pb-5 pt-3 border-t border-stone-50 bg-[#FFFDFF] animate-in fade-in slide-in-from-top-4 duration-500 rounded-b-[2rem]">
-                                                                <div className="space-y-4">
-                                                                    <div className="bg-stone-50/80 p-4 rounded-2xl border border-stone-100 space-y-3 text-center">
+                                                                <div className="space-y-4 text-center">
+                                                                    <div className="bg-stone-50/80 p-4 rounded-2xl border border-stone-100 space-y-3">
                                                                         <label className="text-[7px] font-black uppercase tracking-widest font-black block text-[#5D4037]">Trạng thái 🎯</label>
-                                                                        <select value={task.outcomeStatus} onChange={(e) => handleUpdateTask(task.id, { outcomeStatus: e.target.value })} className="w-full bg-white border-2 border-stone-100 rounded-xl p-2 text-[9px] font-black text-[#5D4037] outline-none shadow-sm"><option value="Chưa làm">Chưa làm</option><option value="Đang làm">Đang làm</option><option value="Hoàn thành">Hoàn thành</option><option value="Không làm">Không làm</option></select>
-                                                                        <textarea defaultValue={task.notes} onBlur={(e) => handleUpdateTask(task.id, { notes: e.target.value })} className="w-full bg-white border-2 border-stone-100 rounded-xl p-3 text-[9px] font-bold text-stone-600 outline-none focus:border-pink-300 shadow-sm resize-none h-20 text-[#5D4037]" placeholder="Sửa ghi chú..."/>
+                                                                        <select value={task.outcomeStatus} onChange={(e) => handleUpdateTask(task.id, { outcomeStatus: e.target.value })} className="w-full bg-white border-2 border-stone-100 rounded-xl p-2 text-[9px] font-black text-[#5D4037] outline-none shadow-sm text-center text-center-last"><option value="Chưa làm">Chưa làm</option><option value="Đang làm">Đang làm</option><option value="Hoàn thành">Hoàn thành</option><option value="Không làm">Không làm</option></select>
+                                                                        <textarea defaultValue={task.notes} onBlur={(e) => handleUpdateTask(task.id, { notes: e.target.value })} className="w-full bg-white border-2 border-stone-100 rounded-xl p-3 text-[9px] font-bold text-stone-600 outline-none focus:border-pink-300 shadow-sm resize-none h-20 text-center" placeholder="Sửa ghi chú..."/>
                                                                     </div>
                                                                     <div className="bg-white p-4 rounded-2xl border-l-4 border-pink-200 shadow-sm space-y-2 text-[8px] font-black text-[#5D4037] uppercase tracking-tighter">
-                                                                        <div className="flex justify-between border-b border-stone-50 pb-1"><span>DỰ ÁN:</span><span className="font-bold">{task.project}</span></div>
+                                                                        <div className="flex justify-between border-b border-stone-50 pb-1"><span>PROJECT:</span><span className="font-bold">{task.project}</span></div>
                                                                         <div className="flex justify-between border-b border-stone-50 pb-1"><span>PIC:</span><span className="font-bold">{task.pic || "Nhunz"}</span></div>
                                                                         <div className="flex justify-between border-b border-stone-50 pb-1"><span>KẾT THÚC:</span><span className="text-rose-500 font-bold">{task.outcomeStatus === 'Hoàn thành' ? (task.endDate ? `${task.endDate} ${task.endTime}` : 'Vừa xong') : 'Đang thực hiện'}</span></div>
                                                                         {task.relevantLink && <a href={task.relevantLink} target="_blank" className="text-blue-500 flex items-center justify-center gap-1 pt-2 transition-all">Link tài liệu <Icon name="ExternalLink" size={10}/></a>}
@@ -503,7 +499,7 @@
                             ))}
                         </div>
                     </main>
-                    <footer className="mt-20 text-center text-stone-300 uppercase font-black text-[9px] tracking-[0.4em] pb-10">Created for Nhunz with Love • Master Edition v17.6</footer>
+                    <footer className="mt-20 text-center text-stone-300 uppercase font-black text-[9px] tracking-[0.4em] pb-10">Created for Nhunz with Love • Final v18.0</footer>
                 </div>
             );
         };
@@ -516,13 +512,13 @@
         );
 
         const SectionLabel = ({ icon, label }) => (
-            <p className="text-[10px] font-black uppercase border-b border-pink-50 pb-2 flex items-center justify-center gap-2 tracking-widest text-[#5D4037]">
+            <p className="text-[10px] font-black uppercase border-b border-pink-50 pb-2 flex items-center justify-center gap-2 tracking-widest text-[#5D4037] text-center">
                 {icon} {label}
             </p>
         );
 
         const InputField = ({ label, children }) => (
-            <div className="flex flex-col gap-2 items-center"><label className="text-[10px] font-black uppercase tracking-tight text-center">{label}</label>{children}</div>
+            <div className="flex flex-col gap-2 items-center"><label className="text-[10px] font-black uppercase tracking-tight text-center w-full">{label}</label>{children}</div>
         );
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
