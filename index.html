@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Nhunz's Checklist - Master Dashboard AI</title>
+    <title>Nhunz's Checklist - Master Dashboard v20.5</title>
     <!-- Import Fonts & Tailwind -->
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
@@ -31,9 +31,17 @@
         .soft-shadow { box-shadow: 0 20px 60px rgba(93, 64, 55, 0.08); }
         .animate-swing { animation: swing 2s infinite ease-in-out; }
         @keyframes swing { 0%, 100% { transform: rotate(-10deg); } 50% { transform: rotate(10deg); } }
-        ::-webkit-scrollbar { width: 6px; }
-        ::-webkit-scrollbar-track { background: #FFF5F7; }
-        ::-webkit-scrollbar-thumb { background: #FFB7C5; border-radius: 10px; }
+        
+        .group-scroll-area::-webkit-scrollbar { width: 5px; }
+        .group-scroll-area::-webkit-scrollbar-track { background: transparent; }
+        .group-scroll-area::-webkit-scrollbar-thumb { background: #FFB7C5; border-radius: 10px; }
+        .group-scroll-area { 
+            max-height: 65vh;
+            overflow-y: auto; 
+            padding-right: 10px;
+            scroll-behavior: smooth;
+        }
+
         .main-app-container { font-family: 'Nunito', sans-serif; }
         .soft-pastel-input { 
             width: 100%; background: #FFF9FA; border: 2.5px solid #F3F1F0; border-radius: 1.5rem; 
@@ -47,15 +55,24 @@
             outline: none; cursor: pointer; appearance: none; transition: all 0.3s; text-align: center; text-align-last: center;
         }
         .soft-pastel-select:focus { border-color: #FFB7C5; background: white; }
+        .modal-overlay { background: rgba(93, 64, 55, 0.4); backdrop-filter: blur(8px); }
         
-        .board-scroll-area {
-            max-height: 550px;
-            overflow-y: auto;
-            padding-right: 12px;
-            scroll-behavior: smooth;
+        .sticky-note-area {
+            background: #FFF;
+            border: 2.5px dashed #FFB7C5;
+            border-radius: 2.5rem;
+            padding: 1.5rem;
+            box-shadow: inset 0 2px 10px rgba(255, 183, 197, 0.05);
+            transition: all 0.3s;
+            display: flex;
+            flex-direction: column;
         }
-        .ai-glow { animation: glow 3s infinite alternate; }
-        @keyframes glow { from { box-shadow: 0 0 5px #FFB7C5; } to { box-shadow: 0 0 25px rgba(255,183,197,0.4); } }
+        .sticky-note-area:focus-within {
+            border-style: solid;
+            background: #FFFBFC;
+            box-shadow: 0 15px 40px rgba(255, 183, 197, 0.15);
+        }
+        .task-card-active { border-color: #FFB7C5 !important; ring: 2px; ring-color: #FFB7C5; }
     </style>
 </head>
 <body>
@@ -64,9 +81,6 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useCallback } = React;
 
-        // [KÍCH HOẠT] Gắn mã API Key của Nhunz vào đây
-        const apiKey = "AIzaSyBOKED9nk0PVe42cdcjpsrQ_recm3DSopQ"; 
-        
         const firebaseConfig = {
             apiKey: "AIzaSyArsu13URh82BfhQC1zE_7BfriMaNKdexs",
             authDomain: "checklist-e2800.firebaseapp.com",
@@ -79,6 +93,8 @@
 
         if (!firebase.apps.length) firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
+        db.settings({ experimentalForceLongPolling: true, host: "firestore.googleapis.com", ssl: true });
+        
         const auth = firebase.auth();
         const appId = 'checklist-e2800-v1';
         const webhookUrl = 'https://script.google.com/macros/s/AKfycbx3mib4nGZaXLJsy0BJnXocMdng-nzMMOPeJwsyJvh5p8mTbBpLBaaSC_AgKC5Z-TGS/exec';
@@ -97,9 +113,11 @@
                 Layout: <><rect width="18" height="18" x="3" y="3" rx="2" /><path d="M3 9h18M9 21V9" /></>,
                 ChevronDown: <path d="m6 9 6 6 6-6" />,
                 ChevronUp: <path d="m18 15-6-6-6 6" />,
-                Brain: <><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .52 5.586 3.004 3.004 0 0 0 5.193 2.817 3.004 3.004 0 0 0 5.614 0 3.004 3.004 0 0 0 5.193-2.817 4 4 0 0 0 .52-5.586 4 4 0 0 0-2.526-5.77A3 3 0 1 0 12 5z"/><path d="M9 13a4.5 4.5 0 0 0 3 4"/><path d="M15 13a4.5 4.5 0 0 1-3 4"/><path d="M12 7v10"/></>,
                 RefreshCcw: <path d="M3 12a9 9 0 0 1 9-9 9.75 9.75 0 1 1 6.74 2.74L21 8m0 0V3m0 5h-5M21 12a9 9 0 0 1-9 9 9.75 9.75 0 0 1-6.74-2.74L3 16m0 0v5m0-5h5" />,
-                ExternalLink: <><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" x2="21" y1="14" y2="3" /></>
+                ExternalLink: <><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" /><polyline points="15 3 21 3 21 9" /><line x1="10" x2="21" y1="14" y2="3" /></>,
+                AlertTriangle: <path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z" />,
+                Users: <><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></>,
+                BookOpen: <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2zM22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z" />
             };
             return (
                 <svg width={size} height={size} viewBox="0 0 24 24" fill={fill} stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
@@ -126,12 +144,12 @@
             const [showReminders, setShowReminders] = useState(false);
             const [expandedTask, setExpandedTask] = useState(null);
             const [syncStatus, setSyncStatus] = useState({ type: null, message: '' });
-            const [aiAnalysis, setAiAnalysis] = useState({ text: 'Nhấn để AI gợi ý trọng tâm...', loading: false });
+            const [deleteConfirmId, setDeleteConfirmId] = useState(null);
+            const [personalNote, setPersonalNote] = useState('');
 
             const [statusFilter, setStatusFilter] = useState('All');
             const [deptFilter, setDeptFilter] = useState('All');
 
-            // [CHƯA XÁC MINH] Đảm bảo lấy ngày chuẩn GMT+7 Việt Nam để logic nhắc nhở không bị lệch
             const getNow = () => {
                 const now = new Date();
                 return {
@@ -139,6 +157,9 @@
                     time: now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
                 };
             };
+
+            const currentMonthStr = (new Date().getMonth() + 1).toString().padStart(2, '0');
+            const [monthFilter, setMonthFilter] = useState(currentMonthStr);
 
             const initialForm = {
                 taskName: '', classification: 'Regions', project: 'Không',
@@ -158,9 +179,8 @@
                 { title: "Nhunz là giỏi nhất, hãy tỏa sáng nhé! 👑", sub: "Sẵn sàng cùng Nhunz chinh phục mọi mục tiêu khó khăn nhất! 🔥" }
             ], []);
 
-            const currentQuote = useMemo(() => dailyQuotes[new Date().getDay()], [dailyQuotes]);
+            const currentQuote = dailyQuotes[new Date().getDay()];
 
-            // [CHƯA XÁC MINH] Sửa logic nhắc nhở: Lấy tất cả task quá hạn (<= hôm nay), loại bỏ "Hoàn thành" và "Không làm"
             const tasksToRemind = useMemo(() => {
                 const todayStr = getNow().date;
                 return tasks.filter(t => 
@@ -172,7 +192,7 @@
 
             useEffect(() => {
                 const initAuth = async () => {
-                    try { await auth.signInAnonymously(); } catch (e) { setAuthError("NHUNZ_NEED_ENABLE_ANONYMOUS"); }
+                    try { await auth.signInAnonymously(); } catch (e) { setAuthError("FIREBASE_AUTH_ERROR"); }
                 };
                 const unsubscribeAuth = auth.onAuthStateChanged(setUser);
                 initAuth();
@@ -181,14 +201,16 @@
 
             useEffect(() => {
                 if (!user) return;
-                const unsubscribe = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('tasks').onSnapshot((snapshot) => {
+                const unsubscribeTasks = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('tasks').onSnapshot((snapshot) => {
                     setTasks(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
                     setLoading(false);
-                }, (error) => {
-                    console.error("Firestore Error:", error);
-                    setLoading(false);
+                }, (error) => { setLoading(false); });
+
+                const unsubscribeNote = db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('settings').doc('privateNote').onSnapshot((doc) => {
+                    if (doc.exists) setPersonalNote(doc.data().content);
                 });
-                return () => unsubscribe();
+
+                return () => { unsubscribeTasks(); unsubscribeNote(); };
             }, [user]);
 
             const handleAddTask = async (e) => {
@@ -196,8 +218,9 @@
                 if (!user) return;
                 let finalData = { ...formData };
                 if (finalData.outcomeStatus === 'Hoàn thành') {
-                    const now = getNow();
-                    finalData.endDate = now.date; finalData.endTime = now.time;
+                    const now = new Date();
+                    finalData.endDate = now.toLocaleDateString('en-CA');
+                    finalData.endTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
                 }
                 finalData.createdAt = firebase.firestore.FieldValue.serverTimestamp();
                 try {
@@ -205,7 +228,7 @@
                     await fetch(webhookUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ ...finalData, id: docRef.id, action: 'CREATE' }) });
                     setFormData(initialForm);
                     setShowForm(false);
-                    setSyncStatus({ type: 'success', message: 'Đã lưu thành công! ✨' });
+                    setSyncStatus({ type: 'success', message: 'Đã lưu checklist thành công! ✨' });
                     setTimeout(() => setSyncStatus({ type: null, message: '' }), 3000);
                 } catch (err) { console.error(err); }
             };
@@ -215,10 +238,9 @@
                 const taskRef = db.collection('artifacts').doc(appId).collection('public').doc('data').collection('tasks').doc(id);
                 let updateData = { ...fields };
                 if (fields.outcomeStatus === 'Hoàn thành') {
-                    const now = getNow();
-                    updateData.endDate = now.date; updateData.endTime = now.time;
-                } else if (fields.outcomeStatus && fields.outcomeStatus !== 'Hoàn thành') {
-                    updateData.endDate = ""; updateData.endTime = "";
+                    const now = new Date();
+                    updateData.endDate = now.toLocaleDateString('en-CA');
+                    updateData.endTime = now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
                 }
                 await taskRef.update(updateData);
                 const original = tasks.find(t => t.id === id);
@@ -226,63 +248,65 @@
             };
 
             const deleteTask = async (id) => {
-                if (!user) return;
-                if (!confirm("Xóa task này nhé Nhunz?")) return;
+                if (!user || !id) return;
+                setDeleteConfirmId(null);
                 try {
                     await db.collection('artifacts').doc(appId).collection('public').doc('data').collection('tasks').doc(id).delete();
                     await fetch(webhookUrl, { method: 'POST', mode: 'no-cors', body: JSON.stringify({ id, action: 'DELETE' }) });
-                } catch (err) { console.error(err); }
+                    setSyncStatus({ type: 'success', message: 'Đã xóa checklist ☁️' });
+                    setTimeout(() => setSyncStatus({ type: null, message: '' }), 3000);
+                } catch (err) { setSyncStatus({ type: 'error', message: 'Lỗi khi xóa.' }); }
             };
 
-            // [CHƯA XÁC MINH] Tinh chỉnh AI: Sử dụng model gemini-1.5-flash để chạy ổn định trên Netlify
-            const analyzeWithAI = useCallback(async () => {
-                const pending = tasks.filter(t => t.outcomeStatus !== 'Hoàn thành' && t.outcomeStatus !== 'Không làm');
-                if (pending.length === 0) { setAiAnalysis({ text: "Nhunz ơi, hiện tại không còn task tồn động nào đâu 🌸", loading: false }); return; }
-                
-                setAiAnalysis(prev => ({ ...prev, loading: true }));
-                
-                // [SUY LUẬN] Prompt tối ưu: Gỡ bỏ metadata wordcount, phản hồi thuần túy tình cảm
-                const prompt = `Bạn là trợ lý ảo HRBP Manager của Nhunz tại GHN. Hãy chọn duy nhất 1 task quan trọng nhất cần làm ngay hôm nay. 
-                Trả lời cực kỳ súc tích, ngọt ngào. TUYỆT ĐỐI KHÔNG ghi metadata, số lượng từ hay chú thích kỹ thuật ở cuối câu. 
-                Danh sách: ${pending.map(t => `- [Ưu tiên ${t.priority}] ${t.taskName} (Hạn: ${t.deadline || 'Không có'})`).join('\n')}`;
-                
-                const fetchWithRetry = async (retries = 3) => {
-                    for (let i = 0; i < retries; i++) {
-                        try {
-                            const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({ 
-                                    contents: [{ parts: [{ text: prompt }] }],
-                                    systemInstruction: { parts: [{ text: "Phản hồi ngọt ngào, chuyên nghiệp, không metadata." }] }
-                                })
-                            });
-                            if (!res.ok) throw new Error("API_ERROR");
-                            const data = await res.json();
-                            return data.candidates?.[0]?.content?.parts?.[0]?.text;
-                        } catch (e) {
-                            if (i === retries - 1) throw e;
-                            await new Promise(r => setTimeout(r, 1000 * (i + 1)));
-                        }
-                    }
-                };
-
+            // [CHƯA XÁC MINH] Chuyển đổi logic lưu ghi chú: Chỉ lưu khi Blur để đảm bảo Firestore nhận dữ liệu trọn vẹn
+            const savePersonalNote = async (content) => {
+                if (!user) return;
                 try {
-                    const text = await fetchWithRetry();
-                    setAiAnalysis({ text: text || "AI chưa đưa ra gợi ý được...", loading: false });
-                } catch (e) { 
-                    console.error("AI Error:", e);
-                    setAiAnalysis({ text: "Lỗi kết nối bộ não AI, Nhunz thử lại sau nhé!", loading: false }); 
-                }
-            }, [tasks]);
+                    await db.collection('artifacts').doc(appId).collection('users').doc(user.uid).collection('settings').doc('privateNote').set({
+                        content: content,
+                        updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                } catch (e) { console.error("Lỗi lưu ghi chú:", e); }
+            };
 
+            // [CHƯA XÁC MINH] Logic định vị task từ mục Nhắc nhở
+            const handleReminderClick = (id) => {
+                setShowReminders(false);
+                setExpandedTask(id);
+                setTimeout(() => {
+                    const el = document.getElementById(`task-${id}`);
+                    if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                }, 100);
+            };
+
+            // [CHƯA XÁC MINH] Logic Bộ lọc Tháng Master: Task ko thời gian hiện ở mọi tháng cho đến khi hoàn thành
             const sortedAndFilteredTasks = useMemo(() => {
-                let list = tasks.filter(t => {
+                return tasks.filter(t => {
                     const matchDept = deptFilter === 'All' || t.classification === deptFilter;
                     const matchStatus = statusFilter === 'All' || (statusFilter === 'Done' ? t.outcomeStatus === 'Hoàn thành' : t.outcomeStatus === statusFilter);
-                    return matchDept && matchStatus;
-                });
-                return list.sort((a, b) => {
+                    
+                    if (monthFilter === 'All') return matchDept && matchStatus;
+
+                    const isCompleted = t.outcomeStatus === 'Hoàn thành';
+                    const finishMonth = t.endDate ? t.endDate.split('-')[1] : null;
+                    const deadlineMonth = t.deadline ? t.deadline.split('-')[1] : null;
+
+                    let matchMonth = false;
+                    if (isCompleted) {
+                        // Task đã xong: Chỉ hiện ở tháng hoàn thành
+                        matchMonth = finishMonth === monthFilter;
+                    } else {
+                        // Task chưa xong
+                        if (deadlineMonth) {
+                            matchMonth = deadlineMonth === monthFilter;
+                        } else {
+                            // Không deadline: Hiện ở MỌI bộ lọc tháng cho đến khi xong
+                            matchMonth = true;
+                        }
+                    }
+                    
+                    return matchDept && matchStatus && matchMonth;
+                }).sort((a, b) => {
                     const aDone = a.outcomeStatus === 'Hoàn thành';
                     const bDone = b.outcomeStatus === 'Hoàn thành';
                     if (aDone !== bDone) return aDone ? 1 : -1;
@@ -291,11 +315,14 @@
                     if (!b.deadline) return -1;
                     return new Date(a.deadline) - new Date(b.deadline);
                 });
-            }, [tasks, deptFilter, statusFilter]);
+            }, [tasks, deptFilter, statusFilter, monthFilter]);
 
             const groupedTasks = useMemo(() => {
                 const groups = { "Hoạt động cốt lõi & Hỗ trợ": [], "Quản trị & Giao tiếp": [], "Lập kế hoạch & Phân tích": [], "Đào tạo & Phát triển": [] };
-                sortedAndFilteredTasks.forEach(task => { if (groups[task.workGroup]) groups[task.workGroup].push(task); else { if(!groups["Khác"]) groups["Khác"] = []; groups["Khác"].push(task); } });
+                sortedAndFilteredTasks.forEach(task => { 
+                    if (groups[task.workGroup]) groups[task.workGroup].push(task); 
+                    else { if(!groups["Khác"]) groups["Khác"] = []; groups["Khác"].push(task); } 
+                });
                 return groups;
             }, [sortedAndFilteredTasks]);
 
@@ -314,7 +341,7 @@
                 }
             };
 
-            if (authError) return <div className="min-h-screen flex items-center justify-center bg-[#FFF9FB] p-8 text-center text-[#5D4037]"><div className="bg-white p-12 rounded-[4rem] shadow-2xl border-4 border-rose-100"><Icon name="Heart" size={40} className="animate-spin mb-8 mx-auto text-pink-300" /> <h2 className="text-2xl font-black mb-6 uppercase text-[#5D4037]">Mở khóa Firebase nhé Nhunz! 🌸</h2> <button onClick={() => window.location.reload()} className="bg-[#5D4037] text-white px-8 py-4 rounded-full font-black">Thử lại ✨</button></div></div>;
+            if (authError) return <div className="min-h-screen flex items-center justify-center bg-[#FFF9FB] p-8 text-center text-[#5D4037]"><div className="bg-white p-12 rounded-[4rem] shadow-2xl border-4 border-rose-100"><Icon name="Heart" size={40} className="animate-spin mb-8 mx-auto text-pink-300" /> <h2 className="text-2xl font-black mb-6 uppercase text-[#5D4037]">Firebase error!</h2> <button onClick={() => window.location.reload()} className="bg-[#5D4037] text-white px-8 py-4 rounded-full font-black">Thử lại</button></div></div>;
 
             if (loading) return <div className="min-h-screen flex items-center justify-center bg-[#FFF9FB]"><Icon name="Heart" size={60} className="text-[#FFB7C5] animate-pulse" fill="currentColor" /></div>;
 
@@ -323,96 +350,88 @@
                     <nav className="bg-white/40 backdrop-blur-md border-b border-pink-50 sticky top-0 z-50 px-8 py-5 flex justify-between items-center shadow-sm">
                         <div className="flex items-center gap-4">
                             <div className="bg-[#FFB7C5] p-3 rounded-[1.2rem] text-white shadow-lg shadow-pink-100 hover:scale-105 transition-transform"><Icon name="Heart" fill="currentColor" /></div>
-                            <h1 className="text-xl font-black uppercase tracking-tighter leading-none">Nhunz's Checklist</h1>
+                            <h1 className="text-xl font-black uppercase tracking-tighter leading-none text-center text-[#5D4037]">Nhunz's Checklist</h1>
                         </div>
-                        <button 
-                            onClick={() => setShowReminders(!showReminders)} 
-                            className={`h-10 w-10 rounded-full flex items-center justify-center border shadow-sm relative transition-all active:scale-95 ${showReminders ? 'bg-pink-100 border-pink-200' : 'bg-white border-pink-100'}`}
-                        >
+                        <button onClick={() => setShowReminders(!showReminders)} className={`h-10 w-10 rounded-full flex items-center justify-center border shadow-sm relative transition-all active:scale-95 ${showReminders ? 'bg-pink-100 border-pink-200' : 'bg-white border-pink-100'}`}>
                             <Icon name="Bell" size={18} className={tasksToRemind.length > 0 ? "text-rose-500 animate-swing" : "text-pink-300"} />
-                            {tasksToRemind.length > 0 && (
-                                <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-white shadow-sm">
-                                    {tasksToRemind.length}
-                                </span>
-                            )}
+                            {tasksToRemind.length > 0 && <span className="absolute -top-1 -right-1 bg-rose-500 text-white text-[8px] font-black w-4 h-4 rounded-full flex items-center justify-center border-2 border-white shadow-sm">{tasksToRemind.length}</span>}
                         </button>
                     </nav>
 
-                    {syncStatus.message && <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-full shadow-2xl bg-[#FFB7C5] text-[#5D4037] font-black text-sm animate-in slide-in-from-top-4"><Icon name="CheckCircle2" size={16} className="inline mr-2"/> {syncStatus.message}</div>}
+                    {syncStatus.message && <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-full shadow-2xl bg-[#FFB7C5] text-[#5D4037] font-black text-sm animate-in slide-in-from-top-4 flex items-center gap-2 shadow-pink-100"><Icon name="CheckCircle2" size={16}/> {syncStatus.message}</div>}
 
-                    <main className="max-w-[1700px] mx-auto p-8 text-center">
+                    <main className="max-w-[1700px] mx-auto p-8 text-center text-[#5D4037]">
                         <div className="mb-14">
                             <div className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-pink-50 rounded-full shadow-sm mb-6 animate-pulse">
                                 <Icon name="Sparkles" size={14} className="text-pink-400" />
-                                <span className="text-[10px] font-black text-[#5D4037] tracking-wider uppercase">MESSAGE FOR NHUNZ</span>
+                                <span className="text-[10px] font-black text-[#5D4037] tracking-wider uppercase">Message for Nhunz</span>
                             </div>
-                            <h2 className="text-4xl font-black text-[#5D4037] mb-4 tracking-tight leading-tight">{currentQuote.title}</h2>
-                            <p className="text-pink-500 text-sm font-bold italic uppercase tracking-widest">{currentQuote.sub}</p>
+                            <h2 className="text-4xl font-black text-[#5D4037] mb-4 tracking-tight leading-tight text-center">{currentQuote.title}</h2>
+                            <p className="text-pink-500 text-sm font-bold italic uppercase tracking-widest text-center">{currentQuote.sub}</p>
                         </div>
 
                         {showReminders && (
                             <div className="mb-12 p-8 bg-rose-50 border-2 border-dashed border-rose-200 rounded-[3rem] animate-in slide-in-from-top-4 duration-500 relative shadow-inner">
-                                <button onClick={() => setShowReminders(false)} className="absolute top-6 right-6 text-rose-300 hover:text-rose-500 transition-colors"><Icon name="XCircle" size={24}/></button>
+                                <button onClick={() => setShowReminders(false)} className="absolute top-6 right-6 text-rose-300 hover:text-rose-500"><Icon name="XCircle" size={24}/></button>
                                 <div className="flex items-center gap-4 mb-6 justify-center">
                                     <div className="p-3 bg-rose-500 rounded-2xl text-white shadow-lg shadow-rose-100 animate-pulse"><Icon name="Bell" size={24}/></div>
-                                    <div className="text-left">
+                                    <div className="text-left text-center">
                                         <h4 className="text-lg font-black uppercase tracking-widest leading-none text-[#5D4037]">NHẮC NHỞ QUAN TRỌNG</h4>
-                                        <p className="text-xs text-rose-400 font-bold italic mt-2 uppercase tracking-tighter text-center">
-                                            {tasksToRemind.length > 0 ? `Nhunz có ${tasksToRemind.length} việc quá hạn hoặc cần làm gấp!` : "Tuyệt quá Nhunz ơi, hiện tại không có việc nào quá hạn!"}
-                                        </p>
+                                        <p className="text-xs text-rose-400 font-bold italic mt-2 uppercase tracking-tighter text-center">{tasksToRemind.length > 0 ? `Nhunz có ${tasksToRemind.length} việc quá hạn hoặc cần làm gấp!` : "Tuyệt quá Nhunz ơi, hiện tại không có việc nào quá hạn!"}</p>
                                     </div>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                    {tasksToRemind.length > 0 ? (
-                                        tasksToRemind.map(t => (
-                                            <div key={t.id} className="bg-white/90 p-4 rounded-[1.8rem] border border-rose-100 flex justify-between items-center shadow-sm hover:shadow-md transition-shadow group text-left">
-                                                <span className="font-bold text-stone-700 truncate pr-4 group-hover:text-rose-600 transition-colors text-sm">{t.taskName}</span>
-                                                <span className="text-[10px] font-black bg-rose-100 px-3 py-1 rounded-full text-rose-500 shrink-0 uppercase tracking-tighter">XỬ LÝ NGAY</span>
-                                            </div>
-                                        ))
-                                    ) : (
-                                        <div className="col-span-full text-center py-6 italic text-stone-400 font-bold">Thật tốt vì mọi việc đã nằm trong tầm kiểm soát 🌸</div>
-                                    )}
+                                    {tasksToRemind.length > 0 ? tasksToRemind.map(t => (
+                                        <div key={t.id} onClick={() => handleReminderClick(t.id)} className="bg-white/90 p-4 rounded-[1.8rem] border border-rose-100 flex justify-between items-center shadow-sm hover:shadow-md transition-all group text-left cursor-pointer active:scale-95">
+                                            <span className="font-bold text-stone-700 truncate pr-4 group-hover:text-rose-600 transition-colors text-sm text-center w-full">{t.taskName}</span>
+                                            <span className="text-[10px] font-black bg-rose-100 px-3 py-1 rounded-full text-rose-500 shrink-0 uppercase tracking-tighter">XỬ LÝ NGAY</span>
+                                        </div>
+                                    )) : <div className="col-span-full text-center py-6 italic text-stone-400 font-bold uppercase tracking-widest">Thật tốt vì mọi việc đã nằm trong tầm kiểm soát 🌸</div>}
                                 </div>
                             </div>
                         )}
 
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-                            <QuickStat label="TỔNG ĐẦU VIỆC" value={tasks.length} />
-                            <QuickStat label="ĐANG CHỜ NHUNZ" value={tasks.filter(t => t.outcomeStatus !== 'Hoàn thành' && t.outcomeStatus !== 'Không làm').length} isAlert />
-                            <div className="px-8 py-7 rounded-[2.5rem] border-2 border-[#FFB7C5] shadow-lg bg-white relative overflow-hidden ai-glow text-center flex flex-col justify-center items-center">
-                                <div className="flex items-center gap-2 mb-2"><Icon name="Brain" size={18} className="text-[#FFB7C5]" /><span className="text-[10px] font-black uppercase tracking-widest text-[#FFB7C5]">AI PHÂN TÍCH</span></div>
-                                <p className="text-[11px] font-bold text-stone-600 italic h-12 flex items-center justify-center overflow-hidden leading-tight px-2">
-                                    {aiAnalysis.loading ? <div className="flex items-center gap-2 animate-pulse text-pink-300"><Icon name="RefreshCcw" size={12} className="animate-spin"/> Brainstorming...</div> : aiAnalysis.text}
-                                </p>
-                                <button onClick={analyzeWithAI} disabled={aiAnalysis.loading} className="mt-3 px-4 py-1.5 bg-pink-50 text-pink-400 rounded-full text-[9px] font-black uppercase tracking-widest hover:bg-pink-100 transition-colors active:scale-95 disabled:opacity-50">Gợi ý ✨</button>
+                        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-12 max-w-[1500px] mx-auto text-center items-stretch">
+                            <div className="sticky-note-area flex flex-col items-center">
+                                <div className="flex items-center gap-2 mb-3">
+                                    <Icon name="BookOpen" size={16} className="text-pink-400" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-pink-400">SỔ TAY CỦA NHUNZ</span>
+                                </div>
+                                <textarea 
+                                    value={personalNote}
+                                    onChange={(e) => setPersonalNote(e.target.value)}
+                                    onBlur={(e) => savePersonalNote(e.target.value)}
+                                    placeholder="Nhunz ghi chú những điều cần nhớ vào đây nhé... (Nhấn ra ngoài để lưu) 🌸"
+                                    className="w-full bg-transparent border-none focus:ring-0 text-[11px] font-bold text-[#5D4037] resize-none h-full placeholder:italic placeholder:text-stone-200 text-center leading-relaxed"
+                                />
                             </div>
+                            <QuickStat label="TỔNG ĐẦU VIỆC" value={sortedAndFilteredTasks.length} />
+                            <QuickStat label="ĐANG CHỜ NHUNZ" value={sortedAndFilteredTasks.filter(t => t.outcomeStatus !== 'Hoàn thành' && t.outcomeStatus !== 'Không làm').length} isAlert />
                         </div>
 
-                        <div className="flex flex-col lg:flex-row gap-5 mb-10 max-w-6xl mx-auto">
+                        <div className="flex flex-col lg:flex-row gap-5 mb-10 max-w-6xl mx-auto justify-center items-center">
                             <button onClick={() => setShowForm(!showForm)} className={`flex-1 p-6 rounded-[2rem] flex items-center justify-center gap-4 font-black text-lg transition-all shadow-xl active:scale-95 bg-[#FFB7C5] text-[#5D4037]`}>
                                 {showForm ? <><Icon name="ChevronUp" size={22}/> THU GỌN</> : <><Icon name="Plus" size={22}/> THÊM CHECKLIST 🎀</>}
                             </button>
 
-                            <div className="flex items-center gap-2 bg-white p-3 rounded-[2rem] border border-pink-50 shadow-sm overflow-hidden min-w-[320px] justify-center">
+                            <div className="flex items-center gap-2 bg-white p-3 rounded-[2rem] border border-pink-50 shadow-sm overflow-hidden min-w-[480px] justify-center">
                                 <div className="flex-1 flex flex-col items-center border-r border-pink-50 px-4 text-center">
                                     <span className="text-[8px] font-black text-stone-400 uppercase tracking-widest mb-1 text-center w-full">PHÂN LOẠI</span>
                                     <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)} className="bg-transparent border-none text-[10px] font-black outline-none text-[#5D4037] uppercase tracking-widest appearance-none cursor-pointer text-center w-full">
-                                        <option value="All">TẤT CẢ</option>
-                                        <option value="Vùng">VÙNG</option>
-                                        <option value="Regions">REGIONS</option>
-                                        <option value="Cá nhân">CÁ NHÂN</option>
-                                        <option value="khác">KHÁC</option>
+                                        <option value="All">TẤT CẢ</option><option value="Vùng">VÙNG</option><option value="Regions">REGIONS</option><option value="Cá nhân">CÁ NHÂN</option><option value="khác">KHÁC</option>
+                                    </select>
+                                </div>
+                                <div className="flex-1 flex flex-col items-center border-r border-pink-50 px-4 text-center">
+                                    <span className="text-[8px] font-black text-stone-400 uppercase tracking-widest mb-1 text-center w-full">ĐẦU RA</span>
+                                    <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="bg-transparent border-none text-[10px] font-black outline-none text-[#5D4037] uppercase tracking-widest appearance-none cursor-pointer text-center w-full">
+                                        <option value="All">TẤT CẢ</option><option value="Chưa làm">CHƯA LÀM</option><option value="Đang làm">ĐANG LÀM</option><option value="Done">ĐÃ XONG</option><option value="Không làm">KHÔNG LÀM</option>
                                     </select>
                                 </div>
                                 <div className="flex-1 flex flex-col items-center px-4 text-center">
-                                    <span className="text-[8px] font-black text-stone-400 uppercase tracking-widest mb-1 text-center w-full">ĐẦU RA</span>
-                                    <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="bg-transparent border-none text-[10px] font-black outline-none text-[#5D4037] uppercase tracking-widest appearance-none cursor-pointer text-center w-full">
+                                    <span className="text-[8px] font-black text-stone-400 uppercase tracking-widest mb-1 text-center w-full text-pink-500 font-black">THÁNG</span>
+                                    <select value={monthFilter} onChange={e => setMonthFilter(e.target.value)} className="bg-transparent border-none text-[10px] font-black outline-none text-[#5D4037] uppercase tracking-widest appearance-none cursor-pointer text-center w-full font-black">
                                         <option value="All">TẤT CẢ</option>
-                                        <option value="Chưa làm">CHƯA LÀM</option>
-                                        <option value="Đang làm">ĐANG LÀM</option>
-                                        <option value="Done">ĐÃ XONG</option>
-                                        <option value="Không làm">KHÔNG LÀM</option>
+                                        {Array.from({length: 12}, (_, i) => (i+1).toString().padStart(2, '0')).map(m => <option key={m} value={m}>THÁNG {parseInt(m)}</option>)}
                                     </select>
                                 </div>
                             </div>
@@ -420,41 +439,41 @@
 
                         {showForm && (
                             <div className="bg-white border border-pink-50 rounded-[3rem] p-10 mb-12 shadow-xl animate-in zoom-in-95 duration-500 max-w-6xl mx-auto text-[#5D4037] text-center">
-                                <form onSubmit={handleAddTask} className="space-y-10">
-                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                                        <div className="space-y-6">
-                                            <SectionLabel icon={<Icon name="Layout" size={12}/>} label="PHÂN LOẠI & PROJECT" />
-                                            <InputField label="Tên công việc 🌵"><input required value={formData.taskName} onChange={e => setFormData({...formData, taskName: e.target.value})} className="soft-pastel-input" placeholder="Viết việc cần làm..." /></InputField>
-                                            <InputField label="Phân loại 🐣"><select value={formData.classification} onChange={e => setFormData({...formData, classification: e.target.value})} className="soft-pastel-select"><option value="Regions">Regions</option><option value="Vùng">Vùng</option><option value="Cá nhân">Cá nhân</option><option value="khác">Khác</option></select></InputField>
-                                            <InputField label="Project ✨"><select value={formData.project} onChange={e => setFormData({...formData, project: e.target.value})} className="soft-pastel-select"><option value="Không">Không</option><option value="TITAN F2 - Nhân sự">TITAN F2 - Nhân sự</option><option value="TITAN F2 - Mô hình Giao lấy & Chính sách">TITAN F2 - Mô hình Giao lấy & Chính sách</option><option value="Champion">Champion</option><option value="Khác">Khác</option></select></InputField>
+                                <form onSubmit={handleAddTask} className="space-y-10 text-center items-center flex flex-col w-full">
+                                    <div className="grid grid-cols-1 md:grid-cols-3 gap-8 w-full text-center">
+                                        <div className="space-y-6 flex flex-col items-center">
+                                            <p className="text-[10px] font-black uppercase border-b border-pink-50 pb-2 flex items-center justify-center gap-2 tracking-widest text-[#5D4037] text-center w-full"><Icon name="Layout" size={12}/> PHÂN LOẠI & PROJECT</p>
+                                            <div className="flex flex-col gap-2 items-center w-full"><label className="text-[10px] font-black uppercase tracking-tight text-center w-full text-[#5D4037]">Tên công việc 🌵</label><input required value={formData.taskName} onChange={e => setFormData({...formData, taskName: e.target.value})} className="soft-pastel-input" placeholder="Viết việc cần làm..." /></div>
+                                            <div className="flex flex-col gap-2 items-center w-full"><label className="text-[10px] font-black uppercase tracking-tight text-center w-full text-[#5D4037]">Phân loại 🐣</label><select value={formData.classification} onChange={e => setFormData({...formData, classification: e.target.value})} className="soft-pastel-select text-center"><option value="Regions">Regions</option><option value="Vùng">Vùng</option><option value="Cá nhân">Cá nhân</option><option value="khác">Khác</option></select></div>
+                                            <div className="flex flex-col gap-2 items-center w-full"><label className="text-[10px] font-black uppercase tracking-tight text-center w-full text-[#5D4037]">Project ✨</label><select value={formData.project} onChange={e => setFormData({...formData, project: e.target.value})} className="soft-pastel-select text-center"><option value="TITAN F2 - Nhân sự">TITAN F2 - Nhân sự</option><option value="TITAN F2 - Mô hình Giao lấy & Chính sách">TITAN F2 - Mô hình Giao lấy & Chính sách</option><option value="Champion">Champion</option><option value="Khác">Khác</option><option value="Không">Không</option></select></div>
                                         </div>
-                                        <div className="space-y-6">
-                                            <SectionLabel icon={<Icon name="RefreshCcw" size={12}/>} label="NHÓM & THỜI GIAN" />
-                                            <InputField label="Nhóm công việc 📂"><select value={formData.workGroup} onChange={e => setFormData({...formData, workGroup: e.target.value})} className="soft-pastel-select"><option value="Hoạt động cốt lõi & Hỗ trợ">Hoạt động cốt lõi & Hỗ trợ</option><option value="Quản trị & Giao tiếp">Quản trị & Giao tiếp</option><option value="Lập kế hoạch & Phân tích">Lập kế hoạch & Phân tích</option><option value="Đào tạo & Phát triển">Đào tạo & Phát triển</option></select></InputField>
-                                            <InputField label="Loại hình 🔄"><select value={formData.taskType} onChange={e => setFormData({...formData, taskType: e.target.value})} className="soft-pastel-select"><option value="Phát sinh">Phát sinh</option><option value="Định kỳ">Định kỳ</option></select></InputField>
-                                            <InputField label="Deadline 🗓️"><input type="date" value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} className="soft-pastel-input bg-white text-[#5D4037]" /></InputField>
+                                        <div className="space-y-6 flex flex-col items-center">
+                                            <p className="text-[10px] font-black uppercase border-b border-pink-50 pb-2 flex items-center justify-center gap-2 tracking-widest text-[#5D4037] text-center w-full"><Icon name="RefreshCcw" size={12}/> NHÓM & THỜI GIAN</p>
+                                            <div className="flex flex-col gap-2 items-center w-full"><label className="text-[10px] font-black uppercase tracking-tight text-center w-full text-[#5D4037]">Nhóm công việc 📂</label><select value={formData.workGroup} onChange={e => setFormData({...formData, workGroup: e.target.value})} className="soft-pastel-select text-center"><option value="Hoạt động cốt lõi & Hỗ trợ">Hoạt động cốt lõi & Hỗ trợ</option><option value="Quản trị & Giao tiếp">Quản trị & Giao tiếp</option><option value="Lập kế hoạch & Phân tích">Lập kế hoạch & Phân tích</option><option value="Đào tạo & Phát triển">Đào tạo & Phát triển</option></select></div>
+                                            <div className="flex flex-col gap-2 items-center w-full"><label className="text-[10px] font-black uppercase tracking-tight text-center w-full text-[#5D4037]">Loại hình 🔄</label><select value={formData.taskType} onChange={e => setFormData({...formData, taskType: e.target.value})} className="soft-pastel-select text-center"><option value="Phát sinh">Phát sinh</option><option value="Định kỳ">Định kỳ</option></select></div>
+                                            <div className="flex flex-col gap-2 items-center w-full"><label className="text-[10px] font-black uppercase tracking-tight text-center w-full text-[#5D4037]">Deadline 🗓️</label><input type="date" value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} className="soft-pastel-input bg-white text-[#5D4037]" /></div>
                                         </div>
-                                        <div className="space-y-6">
-                                            <SectionLabel icon={<Icon name="Layout" size={12}/>} label="ƯU TIÊN & TRẠNG THÁI" />
-                                            <InputField label="Ưu tiên ⭐️"><select value={formData.priority} onChange={e => setFormData({...formData, priority: e.target.value})} className="soft-pastel-select font-bold text-[#5D4037] text-center"><option value="1 - Urgent">🔥 1 - Urgent (Rất gấp)</option><option value="2 - Plan">📅 2 - Plan (Kế hoạch)</option><option value="3 - Delegate">🤝 3 - Delegate (Ủy quyền)</option><option value="4 - Ignore">☁️ 4 - Ignore (Bỏ qua)</option></select></InputField>
-                                            <InputField label="Trạng thái 🎯"><select value={formData.outcomeStatus} onChange={e => setFormData({...formData, outcomeStatus: e.target.value})} className="soft-pastel-select font-black text-[#5D4037] text-center"><option value="Chưa làm">⚪ Chưa làm</option><option value="Đang làm">⏳ Đang làm</option><option value="Hoàn thành">✅ Hoàn thành</option><option value="Không làm">🚫 Không làm</option></select></InputField>
-                                            {formData.taskType === 'Định kỳ' && <div className="flex flex-col gap-2 animate-in slide-in-from-top-2 duration-300"><label className="text-[10px] font-black uppercase text-rose-500 font-black tracking-tight text-center">Ngày nhắc lại sau 🔔</label><input type="date" value={formData.nextOccurrence} onChange={e => setFormData({...formData, nextOccurrence: e.target.value})} className="soft-pastel-input bg-white border-rose-200 text-[#5D4037]" /></div>}
+                                        <div className="space-y-6 flex flex-col items-center">
+                                            <p className="text-[10px] font-black uppercase border-b border-pink-50 pb-2 flex items-center justify-center gap-2 tracking-widest text-[#5D4037] text-center w-full"><Icon name="Target" size={12}/> ƯU TIÊN & TRẠNG THÁI</p>
+                                            <div className="flex flex-col gap-2 items-center w-full"><label className="text-[10px] font-black uppercase tracking-tight text-center w-full text-[#5D4037]">Ưu tiên ⭐️</label><select value={formData.priority} onChange={e => setFormData({...formData, priority: e.target.value})} className="soft-pastel-select font-bold text-[#5D4037] text-center"><option value="1 - Urgent">🔥 1 - Urgent (Rất gấp)</option><option value="2 - Plan">📅 2 - Plan (Kế hoạch)</option><option value="3 - Delegate">🤝 3 - Delegate (Ủy quyền)</option><option value="4 - Ignore">☁️ 4 - Ignore (Bỏ qua)</option></select></div>
+                                            <div className="flex flex-col gap-2 items-center w-full"><label className="text-[10px] font-black uppercase tracking-tight text-center w-full text-[#5D4037]">Trạng thái 🎯</label><select value={formData.outcomeStatus} onChange={e => setFormData({...formData, outcomeStatus: e.target.value})} className="soft-pastel-select font-black text-[#5D4037] text-center"><option value="Chưa làm">⚪ Chưa làm</option><option value="Đang làm">⏳ Đang làm</option><option value="Hoàn thành">✅ Hoàn thành</option><option value="Không làm">🚫 Không làm</option></select></div>
+                                            {formData.taskType === 'Định kỳ' && <div className="flex flex-col gap-2 animate-in slide-in-from-top-2 duration-300 w-full"><label className="text-[10px] font-black uppercase text-rose-500 font-black tracking-tight text-center">Ngày nhắc lại sau 🔔</label><input type="date" value={formData.nextOccurrence} onChange={e => setFormData({...formData, nextOccurrence: e.target.value})} className="soft-pastel-input bg-white border-rose-200 text-[#5D4037]" /></div>}
                                         </div>
                                     </div>
-                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10 pt-8 border-t border-stone-100 text-[#5D4037]">
-                                        <div className="space-y-6">
-                                            <div className="grid grid-cols-2 gap-4 text-center">
-                                                <div className="flex flex-col gap-2 items-center"><label className="text-[10px] font-black uppercase tracking-tight text-center">PIC👤</label><input value={formData.pic} onChange={e => setFormData({...formData, pic: e.target.value})} className="soft-pastel-input text-[#5D4037] text-center" placeholder="Tên PIC..." /></div>
-                                                <div className="flex flex-col gap-2 items-center"><label className="text-[10px] font-black uppercase tracking-tight text-center">Link tài liệu 🔗</label><input type="url" value={formData.relevantLink} onChange={e => setFormData({...formData, relevantLink: e.target.value})} className="soft-pastel-input text-[#5D4037] text-center" placeholder="Dán link..." /></div>
+                                    <div className="grid grid-cols-1 md:grid-cols-2 gap-10 pt-8 border-t border-stone-100 text-[#5D4037] w-full items-center">
+                                        <div className="space-y-6 flex flex-col items-center w-full">
+                                            <div className="grid grid-cols-2 gap-4 w-full text-center">
+                                                <div className="flex flex-col gap-2 items-center text-center w-full"><label className="text-[10px] font-black uppercase tracking-tight text-center text-[#5D4037]">PIC👤</label><input value={formData.pic} onChange={e => setFormData({...formData, pic: e.target.value})} className="soft-pastel-input text-[#5D4037] w-full" placeholder="Tên PIC..." /></div>
+                                                <div className="flex flex-col gap-2 items-center text-center w-full"><label className="text-[10px] font-black uppercase tracking-tight text-center text-[#5D4037]">Link tài liệu 🔗</label><input type="url" value={formData.relevantLink} onChange={e => setFormData({...formData, relevantLink: e.target.value})} className="soft-pastel-input text-[#5D4037] w-full" placeholder="Dán link..." /></div>
                                             </div>
-                                            <div className="flex gap-4 items-end justify-center">
-                                                <div className="flex flex-col gap-2 flex-1 items-center"><label className="text-[10px] font-black uppercase tracking-tight text-center">Bắt đầu 🕓</label><input type="date" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} className="soft-pastel-input text-[11px] text-[#5D4037] text-center" /></div>
-                                                <div className="flex flex-col gap-2 flex-1 items-center"><label className="text-[10px] font-black uppercase tracking-tight text-center">Giờ bắt đầu</label><div className="flex gap-2 w-full"><input type="time" value={formData.startTime} onChange={e => setFormData({...formData, startTime: e.target.value})} className="soft-pastel-input text-[11px] flex-1 text-[#5D4037] text-center" /><button type="button" onClick={() => setFormData({...formData, ...getNow()})} className="bg-pink-50 p-2 rounded-xl text-pink-500 hover:bg-pink-100 transition-colors"><Icon name="RefreshCcw" size={16}/></button></div></div>
+                                            <div className="flex gap-4 items-end justify-center w-full text-center">
+                                                <div className="flex flex-col gap-2 flex-1 items-center w-full text-center"><label className="text-[10px] font-black uppercase tracking-tight text-center text-[#5D4037]">Bắt đầu 🕓</label><input type="date" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} className="soft-pastel-input text-[11px] text-[#5D4037] w-full" /></div>
+                                                <div className="flex-1 items-center flex flex-col w-full text-center"><label className="text-[10px] font-black uppercase tracking-tight text-center text-[#5D4037]">Giờ bắt đầu</label><div className="flex gap-2 w-full"><input type="time" value={formData.startTime} onChange={e => setFormData({...formData, startTime: e.target.value})} className="soft-pastel-input text-[11px] flex-1 text-[#5D4037]" /><button type="button" onClick={() => setFormData({...formData, ...getNow()})} className="bg-pink-50 p-2 rounded-xl text-pink-400 hover:bg-pink-100 transition-colors"><Icon name="RefreshCcw" size={16}/></button></div></div>
                                             </div>
                                         </div>
-                                        <div className="flex flex-col gap-2 items-center"><label className="text-[10px] font-black text-[#5D4037] uppercase tracking-tight text-center">Ghi chú chi tiết 📝</label><textarea rows="5" value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} className="soft-pastel-input resize-none h-full text-[#5D4037]" placeholder="Nhunz lưu ý thêm gì không?..." /></div>
+                                        <div className="flex flex-col gap-2 items-center w-full text-center"><label className="text-[10px] font-black text-[#5D4037] uppercase tracking-tight text-center">Ghi chú chi tiết 📝</label><textarea rows="5" value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} className="soft-pastel-input resize-none h-full text-[#5D4037] w-full" placeholder="Nhunz lưu ý thêm gì không?..." /></div>
                                     </div>
-                                    <button type="submit" className="w-full bg-[#FFB7C5] text-[#5D4037] font-black py-6 rounded-[2.5rem] shadow-xl uppercase text-xl hover:bg-[#FFA4B5] transition-all active:scale-95 tracking-widest">LƯU CHECKLIST 🎀</button>
+                                    <button type="submit" className="w-full bg-[#FFB7C5] text-[#5D4037] font-black py-6 rounded-[2.5rem] shadow-xl uppercase text-xl hover:bg-[#FFA4B5] transition-all active:scale-95 tracking-widest mt-8 shadow-pink-100">LƯU CHECKLIST 🎀</button>
                                 </form>
                             </div>
                         )}
@@ -463,16 +482,19 @@
                             {Object.entries(groupedTasks).map(([groupName, groupTasks]) => (
                                 <section key={groupName} className="bg-white/60 backdrop-blur-sm rounded-[3rem] p-6 border-2 border-white shadow-xl flex flex-col h-full overflow-hidden text-[#5D4037]">
                                     <div className="flex items-center justify-between mb-5 px-3 text-[#5D4037]">
-                                        <div className="flex items-center gap-2 text-[#5D4037]"><div className="h-8 w-1.5 bg-[#FFB7C5] rounded-full shadow-sm shadow-pink-100"></div><h3 className="text-[11px] font-black uppercase tracking-[0.15em] leading-tight max-w-[130px] text-center">{groupName}</h3></div>
-                                        <span className="bg-pink-100 text-pink-600 px-2.5 py-0.5 rounded-full text-[9px] font-black shadow-inner">{groupTasks.length}</span>
+                                        <div className="flex items-center gap-2 text-[#5D4037] text-left">
+                                            <div className="h-8 w-1.5 bg-[#FFB7C5] rounded-full shadow-sm mr-2 shadow-pink-100"></div>
+                                            <h3 className="text-[11px] font-black uppercase tracking-[0.1em] max-w-[150px] leading-tight text-center md:text-left">{groupName}</h3>
+                                        </div>
+                                        <span className="bg-pink-100 text-pink-600 px-3 py-1 rounded-full text-[13px] font-black shadow-inner shadow-pink-200/50">{groupTasks.length}</span>
                                     </div>
-                                    <div className="board-scroll-area">
+                                    <div className="group-scroll-area">
                                         {groupTasks.length === 0 ? (
                                             <div className="py-20 text-center opacity-30 italic font-black text-[10px] tracking-widest uppercase">Trống ☁️</div>
                                         ) : (
                                             <div className="space-y-4 pb-4">
                                                 {groupTasks.map(task => (
-                                                    <div key={task.id} className={`bg-white rounded-[2rem] mb-4 border transition-all ${task.outcomeStatus === 'Hoàn thành' ? 'opacity-50 border-transparent bg-pink-50/10' : 'border-pink-50 soft-shadow hover:shadow-md'}`}>
+                                                    <div key={task.id} id={`task-${task.id}`} className={`bg-white rounded-[2rem] mb-4 border transition-all ${task.outcomeStatus === 'Hoàn thành' ? 'opacity-50 border-transparent bg-pink-50/10' : 'border-pink-50 soft-shadow hover:shadow-md'} ${expandedTask === task.id ? 'task-card-active shadow-md' : ''}`}>
                                                         <div className="p-5 flex flex-col gap-3 text-[#5D4037]">
                                                             <div className="flex items-start gap-3">
                                                                 <div className="cursor-pointer transform scale-90 active:scale-75 transition-transform mt-1" onClick={() => handleUpdateTask(task.id, { outcomeStatus: task.outcomeStatus === 'Hoàn thành' ? 'Chưa làm' : 'Hoàn thành' })}>{getOutcomeIcon(task.outcomeStatus)}</div>
@@ -491,29 +513,46 @@
                                                                             </span>
                                                                         )}
                                                                     </div>
-                                                                    <h3 className={`text-xs font-bold leading-tight text-[#5D4037] ${task.outcomeStatus === 'Hoàn thành' ? 'line-through text-stone-400 opacity-60' : ''}`}>{task.taskName}</h3>
+                                                                    <h3 className={`text-xs font-bold leading-tight text-[#5D4037] ${task.outcomeStatus === 'Hoàn thành' ? 'line-through text-stone-300 opacity-60' : ''}`}>{task.taskName}</h3>
                                                                 </div>
                                                             </div>
-                                                            <div className="flex items-center justify-end pl-8 border-t border-stone-50 pt-2 opacity-80">
+                                                            <div className="flex items-center justify-end pl-8 border-t border-stone-50 pt-2 opacity-80 text-[#5D4037]">
                                                                 <div className="flex gap-1.5">
                                                                     <button onClick={() => setExpandedTask(expandedTask === task.id ? null : task.id)} className="h-6 w-6 rounded-lg bg-stone-50 text-stone-400 flex items-center justify-center transition-colors hover:bg-stone-100">{expandedTask === task.id ? <Icon name="ChevronUp" size={14} /> : <Icon name="ChevronDown" size={14} />}</button>
-                                                                    <button onClick={() => deleteTask(task.id)} className="h-6 w-6 rounded-lg bg-rose-50 text-rose-400 flex items-center justify-center hover:bg-rose-100 transition-colors shadow-sm"><Icon name="Trash2" size={14}/></button>
+                                                                    <button onClick={() => setDeleteConfirmId(task.id)} className="h-6 w-6 rounded-lg bg-rose-50 text-rose-400 flex items-center justify-center hover:bg-rose-100 transition-colors shadow-sm"><Icon name="Trash2" size={14}/></button>
                                                                 </div>
                                                             </div>
                                                         </div>
                                                         {expandedTask === task.id && (
                                                             <div className="px-5 pb-5 pt-3 border-t border-stone-50 bg-[#FFFDFF] animate-in fade-in slide-in-from-top-4 duration-500 rounded-b-[2rem]">
-                                                                <div className="space-y-4 text-center">
-                                                                    <div className="bg-stone-50/80 p-4 rounded-2xl border border-stone-100 space-y-3">
-                                                                        <label className="text-[7px] font-black uppercase tracking-widest font-black block text-[#5D4037]">Trạng thái 🎯</label>
+                                                                <div className="space-y-4 text-center items-center flex flex-col">
+                                                                    <div className="bg-stone-50/80 p-4 rounded-2xl border border-stone-100 space-y-3 items-center flex flex-col w-full text-center text-[#5D4037]">
+                                                                        <label className="text-[7px] font-black uppercase tracking-widest block text-[#5D4037] w-full text-center">Trạng thái 🎯</label>
                                                                         <select value={task.outcomeStatus} onChange={(e) => handleUpdateTask(task.id, { outcomeStatus: e.target.value })} className="w-full bg-white border-2 border-stone-100 rounded-xl p-2 text-[9px] font-black text-[#5D4037] outline-none shadow-sm text-center text-center-last"><option value="Chưa làm">Chưa làm</option><option value="Đang làm">Đang làm</option><option value="Hoàn thành">Hoàn thành</option><option value="Không làm">Không làm</option></select>
-                                                                        <textarea defaultValue={task.notes} onBlur={(e) => handleUpdateTask(task.id, { notes: e.target.value })} className="w-full bg-white border-2 border-stone-100 rounded-xl p-3 text-[9px] font-bold text-stone-600 outline-none focus:border-pink-300 shadow-sm resize-none h-20 text-center" placeholder="Sửa ghi chú..."/>
-                                                                    </div>
-                                                                    <div className="bg-white p-4 rounded-2xl border-l-4 border-pink-200 shadow-sm space-y-2 text-[8px] font-black text-[#5D4037] uppercase tracking-tighter">
-                                                                        <div className="flex justify-between border-b border-stone-50 pb-1"><span>PROJECT:</span><span className="font-bold">{task.project}</span></div>
-                                                                        <div className="flex justify-between border-b border-stone-50 pb-1"><span>PIC:</span><span className="font-bold">{task.pic || "Nhunz"}</span></div>
-                                                                        <div className="flex justify-between border-b border-stone-50 pb-1"><span>KẾT THÚC:</span><span className="text-rose-500 font-bold">{task.outcomeStatus === 'Hoàn thành' ? (task.endDate ? `${task.endDate} ${task.endTime}` : 'Vừa xong') : 'Đang thực hiện'}</span></div>
-                                                                        {task.relevantLink && <a href={task.relevantLink} target="_blank" className="text-blue-500 flex items-center justify-center gap-1 pt-2 transition-all">Link tài liệu <Icon name="ExternalLink" size={10}/></a>}
+                                                                        
+                                                                        <div className="bg-white p-4 rounded-2xl shadow-sm space-y-2 text-[8px] font-black text-[#5D4037] uppercase tracking-tighter w-full flex flex-col items-center">
+                                                                            <div className="flex flex-col items-center gap-1 w-full border-b border-stone-50 pb-1 text-center">
+                                                                                <span>PROJECT:</span>
+                                                                                <select value={task.project} onChange={(e) => handleUpdateTask(task.id, { project: e.target.value })} className="bg-transparent text-[8px] font-bold text-stone-600 outline-none text-center cursor-pointer text-center-last"><option value="TITAN F2 - Nhân sự">TITAN F2 - Nhân sự</option><option value="TITAN F2 - Mô hình Giao lấy & Chính sách">TITAN F2 - Mô hình Giao lấy & Chính sách</option><option value="Champion">Champion</option><option value="Khác">Khác</option><option value="Không">Không</option></select>
+                                                                            </div>
+                                                                            <p className="border-b border-stone-50 pb-1 w-full text-center">PIC: <span className="font-bold text-[#5D4037]">{task.pic || "Nhunz"}</span></p>
+                                                                            <p className="border-b border-stone-50 pb-1 w-full text-center">KẾT THÚC: <span className="text-rose-500 font-bold">{task.outcomeStatus === 'Hoàn thành' ? (task.endDate ? `${task.endDate} ${task.endTime}` : 'Vừa xong') : 'Đang thực hiện'}</span></p>
+                                                                            
+                                                                            {/* [CHƯA XÁC MINH] Logic Link Tài Liệu: Nhấn mở tab mới ngay, trống mới hiện ô dán link */}
+                                                                            <div className="flex flex-col items-center gap-1 w-full pt-1 text-center">
+                                                                                <span className="flex items-center gap-1 justify-center text-center uppercase tracking-widest text-[7px] font-black text-stone-400">Link Tài liệu <Icon name="ExternalLink" size={8}/>:</span>
+                                                                                {task.relevantLink ? (
+                                                                                    <div className="flex flex-col items-center gap-2 w-full animate-in zoom-in-95 duration-300">
+                                                                                        <a href={task.relevantLink} target="_blank" className="text-[9px] font-black text-blue-500 bg-blue-50/50 px-4 py-2 rounded-xl border border-blue-100 hover:bg-blue-100 transition-all flex items-center gap-2 shadow-sm">MỞ LINK NGAY <Icon name="ExternalLink" size={10}/></a>
+                                                                                        <button onClick={() => handleUpdateTask(task.id, { relevantLink: '' })} className="text-[6px] text-stone-300 underline hover:text-rose-400">(Nhấn để gỡ link cũ)</button>
+                                                                                    </div>
+                                                                                ) : (
+                                                                                    <input type="url" defaultValue="" onBlur={(e) => { if(e.target.value) handleUpdateTask(task.id, { relevantLink: e.target.value }) }} placeholder="Dán link vào đây nhé Nhunz..." className="w-full bg-white border border-stone-100 rounded-lg p-1.5 text-[7px] text-blue-500 text-center outline-none focus:border-pink-200 shadow-inner" />
+                                                                                )}
+                                                                            </div>
+                                                                        </div>
+                                                                        <label className="text-[7px] font-black uppercase tracking-widest block text-[#5D4037] mt-2 text-center w-full">Ghi chú 📝</label>
+                                                                        <textarea defaultValue={task.notes} onBlur={(e) => { if(e.target.value !== task.notes) handleUpdateTask(task.id, { notes: e.target.value }) }} className="w-full bg-white border-2 border-stone-100 rounded-xl p-3 text-[9px] font-bold text-stone-600 outline-none focus:border-pink-300 shadow-sm resize-none h-20 text-center text-[#5D4037]" placeholder="Sửa ghi chú..."/>
                                                                     </div>
                                                                 </div>
                                                             </div>
@@ -527,26 +566,39 @@
                             ))}
                         </div>
                     </main>
-                    <footer className="mt-20 text-center text-stone-300 uppercase font-black text-[9px] tracking-[0.4em] pb-10">Created for Nhunz with Love • Final v18.1</footer>
+
+                    {deleteConfirmId && (
+                        <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 modal-overlay animate-in fade-in duration-300">
+                            <div className="bg-white rounded-[3rem] p-10 max-w-sm w-full shadow-2xl border-4 border-rose-100 text-center animate-in zoom-in-95 duration-300">
+                                <div className="p-4 bg-rose-50 rounded-full w-20 h-20 flex items-center justify-center mx-auto mb-6 text-rose-500 shadow-inner"><Icon name="AlertTriangle" size={40} /></div>
+                                <h3 className="text-xl font-black text-[#5D4037] mb-2 uppercase text-center">Xóa task này nhé?</h3>
+                                <p className="text-stone-400 text-[10px] font-bold mb-8 italic text-center">Nhunz lưu ý: Thao tác này sẽ không thể hoàn tác!</p>
+                                <div className="grid grid-cols-2 gap-4">
+                                    <button onClick={() => setDeleteConfirmId(null)} className="py-4 rounded-full bg-stone-100 text-stone-500 font-black text-[10px] uppercase tracking-widest active:scale-95 transition-transform">HỦY BỎ</button>
+                                    <button onClick={() => deleteTask(deleteConfirmId)} className="py-4 rounded-full bg-rose-500 text-white font-black text-[10px] uppercase tracking-widest shadow-lg shadow-rose-200 active:scale-95 transition-transform">XÓA NGAY</button>
+                                </div>
+                            </div>
+                        </div>
+                    )}
+
+                    <footer className="mt-20 text-center text-stone-300 uppercase font-black text-[9px] tracking-[0.4em] pb-10">Created for Nhunz with Love • Master v20.5</footer>
                 </div>
             );
         };
 
         const QuickStat = ({ label, value, isAlert }) => (
-            <div className={`px-10 py-7 rounded-[2.5rem] border-2 border-white shadow-lg text-center flex flex-col justify-center ${isAlert ? 'bg-rose-50 text-rose-600' : 'bg-stone-50 text-[#5D4037]'}`}>
-                <span className="text-[10px] font-black uppercase opacity-70 tracking-widest">{label}</span>
-                <span className="text-4xl font-black block mt-1">{value}</span>
+            <div className={`px-10 py-7 rounded-[2.5rem] flex-1 border-2 border-white shadow-lg text-center flex flex-col justify-center items-center ${isAlert ? 'bg-rose-50 text-rose-600 shadow-rose-50' : 'bg-stone-50 text-[#5D4037]'}`}>
+                <span className="text-[10px] font-black uppercase opacity-70 tracking-widest text-center w-full">{label}</span>
+                <span className="text-4xl font-black block mt-1 text-center w-full">{value}</span>
             </div>
         );
 
         const SectionLabel = ({ icon, label }) => (
-            <p className="text-[10px] font-black uppercase border-b border-pink-50 pb-2 flex items-center justify-center gap-2 tracking-widest text-[#5D4037] text-center">
-                {icon} {label}
-            </p>
+            <p className="text-[10px] font-black uppercase border-b border-pink-50 pb-2 flex items-center justify-center gap-2 tracking-widest text-[#5D4037] text-center w-full">{icon} {label}</p>
         );
 
         const InputField = ({ label, children }) => (
-            <div className="flex flex-col gap-2 items-center"><label className="text-[10px] font-black uppercase tracking-tight text-center w-full">{label}</label>{children}</div>
+            <div className="flex flex-col gap-2 items-center w-full text-center"><label className="text-[10px] font-black uppercase tracking-tight text-center w-full text-[#5D4037]">{label}</label>{children}</div>
         );
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
