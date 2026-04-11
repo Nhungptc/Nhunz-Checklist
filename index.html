@@ -65,7 +65,7 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useCallback } = React;
 
-        const apiKey = ""; // Gemini API Key
+        const apiKey = ""; // Gemini API Key (tự động điền bởi môi trường)
         const firebaseConfig = {
             apiKey: "AIzaSyArsu13URh82BfhQC1zE_7BfriMaNKdexs",
             authDomain: "checklist-e2800.firebaseapp.com",
@@ -130,11 +130,11 @@
             const [statusFilter, setStatusFilter] = useState('All');
             const [deptFilter, setDeptFilter] = useState('All');
 
-            // [SUY LUẬN] Fix lỗi lệch múi giờ khi lấy ngày bằng toLocaleDateString theo format CA (YYYY-MM-DD)
+            // [SUY LUẬN] Đảm bảo lấy ngày chuẩn GMT+7 Việt Nam
             const getNow = () => {
                 const now = new Date();
                 return {
-                    date: now.toLocaleDateString('en-CA'), // Luôn trả về YYYY-MM-DD theo giờ địa phương
+                    date: now.toLocaleDateString('en-CA'), 
                     time: now.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })
                 };
             };
@@ -159,7 +159,7 @@
 
             const currentQuote = useMemo(() => dailyQuotes[new Date().getDay()], [dailyQuotes]);
 
-            // [CHƯA XÁC MINH] Logic nhắc nhở: Loại bỏ "Không làm" và "Hoàn thành", bao gồm cả task quá hạn và đến hạn hôm nay
+            // [CHƯA XÁC MINH] Sửa logic thông báo: Lấy ≤ ngày hiện tại, loại bỏ "Hoàn thành" và "Không làm"
             const tasksToRemind = useMemo(() => {
                 const todayStr = getNow().date;
                 return tasks.filter(t => 
@@ -235,12 +235,8 @@
                 if (pending.length === 0) { setAiAnalysis({ text: "Nhunz ơi, hiện tại không còn task tồn động nào đâu 🌸", loading: false }); return; }
                 setAiAnalysis(prev => ({ ...prev, loading: true }));
                 
-                // [SUY LUẬN] Tối ưu Prompt để gỡ bỏ metadata và phản hồi ngọt ngào chuẩn HRBP
-                const prompt = `Bạn là trợ lý ảo ngọt ngào của Nhunz - HRBP Manager tại Giao Hàng Nhanh. 
-                Hãy chọn ra đúng 1 task quan trọng nhất cần làm ngay hôm nay. 
-                Trả lời súc tích, chuyên nghiệp nhưng vẫn tình cảm. 
-                TUYỆT ĐỐI KHÔNG ghi chú thích kỹ thuật hay số lượng từ. 
-                Danh sách: ${pending.map(t => `- [${t.priority}] ${t.taskName} (Hạn: ${t.deadline})`).join('\n')}`;
+                // [SUY LUẬN] Prompt tinh chỉnh: Gỡ bỏ metadata số lượng từ
+                const prompt = `Bạn là trợ lý AI của Nhunz - HRBP Manager tại GHN. Hãy chọn 1 task quan trọng nhất cần làm ngay hôm nay. Trả lời cực kỳ súc tích, ngọt ngào. TUYỆT ĐỐI KHÔNG ghi metadata hay số lượng từ ở cuối câu. Danh sách: ${pending.map(t => `- [${t.priority}] ${t.taskName} (Hạn: ${t.deadline})`).join('\n')}`;
                 
                 try {
                     const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`, {
@@ -253,7 +249,7 @@
                 } catch (e) { setAiAnalysis({ text: "Lỗi kết nối bộ não AI...", loading: false }); }
             }, [tasks]);
 
-            const sortedTasks = useMemo(() => {
+            const sortedAndFilteredTasks = useMemo(() => {
                 let list = tasks.filter(t => {
                     const matchDept = deptFilter === 'All' || t.classification === deptFilter;
                     const matchStatus = statusFilter === 'All' || (statusFilter === 'Done' ? t.outcomeStatus === 'Hoàn thành' : t.outcomeStatus === statusFilter);
@@ -272,9 +268,9 @@
 
             const groupedTasks = useMemo(() => {
                 const groups = { "Hoạt động cốt lõi & Hỗ trợ": [], "Quản trị & Giao tiếp": [], "Lập kế hoạch & Phân tích": [], "Đào tạo & Phát triển": [] };
-                sortedTasks.forEach(task => { if (groups[task.workGroup]) groups[task.workGroup].push(task); else { if(!groups["Khác"]) groups["Khác"] = []; groups["Khác"].push(task); } });
+                sortedAndFilteredTasks.forEach(task => { if (groups[task.workGroup]) groups[task.workGroup].push(task); else { if(!groups["Khác"]) groups["Khác"] = []; groups["Khác"].push(task); } });
                 return groups;
-            }, [sortedTasks]);
+            }, [sortedAndFilteredTasks]);
 
             const getPriorityStyle = (p) => {
                 if (p?.includes('1 - Urgent')) return 'bg-[#5D4037] text-white font-black px-2 py-0.5 rounded-full text-[6px]';
@@ -318,6 +314,7 @@
                     {syncStatus.message && <div className="fixed top-24 left-1/2 -translate-x-1/2 z-[100] px-6 py-3 rounded-full shadow-2xl bg-[#FFB7C5] text-[#5D4037] font-black text-sm animate-in slide-in-from-top-4"><Icon name="CheckCircle2" size={16} className="inline mr-2"/> {syncStatus.message}</div>}
 
                     <main className="max-w-[1700px] mx-auto p-8 text-center">
+                        {/* LỜI CHÚC TRÊN ĐẦU TRANG */}
                         <div className="mb-14">
                             <div className="inline-flex items-center gap-2 px-4 py-2 bg-white border border-pink-50 rounded-full shadow-sm mb-6 animate-pulse">
                                 <Icon name="Sparkles" size={14} className="text-pink-400" />
@@ -327,12 +324,13 @@
                             <p className="text-pink-500 text-sm font-bold italic uppercase tracking-widest">{currentQuote.sub}</p>
                         </div>
 
+                        {/* [CHƯA XÁC MINH] Bảng nhắc nhở được khôi phục logic logic hiển thị chuẩn Master */}
                         {showReminders && (
                             <div className="mb-12 p-8 bg-rose-50 border-2 border-dashed border-rose-200 rounded-[3rem] animate-in slide-in-from-top-4 duration-500 relative shadow-inner">
                                 <button onClick={() => setShowReminders(false)} className="absolute top-6 right-6 text-rose-300 hover:text-rose-500 transition-colors"><Icon name="XCircle" size={24}/></button>
                                 <div className="flex items-center gap-4 mb-6 justify-center">
                                     <div className="p-3 bg-rose-500 rounded-2xl text-white shadow-lg shadow-rose-100 animate-pulse"><Icon name="Bell" size={24}/></div>
-                                    <div className="text-left">
+                                    <div className="text-left text-center">
                                         <h4 className="text-lg font-black uppercase tracking-widest leading-none text-[#5D4037]">NHẮC NHỞ QUAN TRỌNG</h4>
                                         <p className="text-xs text-rose-400 font-bold italic mt-2 uppercase tracking-tighter">
                                             {tasksToRemind.length > 0 ? `Nhunz có ${tasksToRemind.length} việc quá hạn hoặc cần làm gấp!` : "Tuyệt quá Nhunz ơi, hiện tại không còn việc nào quá hạn!"}
@@ -359,7 +357,7 @@
                             <QuickStat label="ĐANG CHỜ NHUNZ" value={tasks.filter(t => t.outcomeStatus !== 'Hoàn thành' && t.outcomeStatus !== 'Không làm').length} isAlert />
                             <div className="px-8 py-7 rounded-[2.5rem] border-2 border-[#FFB7C5] shadow-lg bg-white relative overflow-hidden ai-glow text-center flex flex-col justify-center items-center">
                                 <div className="flex items-center gap-2 mb-2"><Icon name="Brain" size={18} className="text-[#FFB7C5]" /><span className="text-[10px] font-black uppercase tracking-widest text-[#FFB7C5]">AI PHÂN TÍCH</span></div>
-                                <p className="text-[11px] font-bold text-stone-600 italic h-12 flex items-center justify-center overflow-hidden leading-tight">
+                                <p className="text-[11px] font-bold text-stone-600 italic h-12 flex items-center justify-center overflow-hidden leading-tight px-2">
                                     {aiAnalysis.loading ? "Đang nghĩ..." : aiAnalysis.text}
                                 </p>
                                 <button onClick={analyzeWithAI} className="mt-3 px-4 py-1.5 bg-pink-50 text-pink-400 rounded-full text-[9px] font-black uppercase tracking-widest hover:bg-pink-100 transition-colors">Gợi ý ✨</button>
@@ -371,9 +369,10 @@
                                 {showForm ? <><Icon name="ChevronUp" size={22}/> THU GỌN</> : <><Icon name="Plus" size={22}/> THÊM CHECKLIST 🎀</>}
                             </button>
 
-                            <div className="flex items-center gap-2 bg-white p-3 rounded-[2rem] border border-pink-50 shadow-sm overflow-hidden min-w-[320px]">
-                                <div className="flex-1 flex flex-col items-center border-r border-pink-50 px-4">
-                                    <span className="text-[8px] font-black text-stone-400 uppercase tracking-widest mb-1 text-center">PHÂN LOẠI</span>
+                            {/* [SUY LUẬN] Căn giữa nhãn và bộ lọc lọc chuẩn Dashboard Master */}
+                            <div className="flex items-center gap-2 bg-white p-3 rounded-[2rem] border border-pink-50 shadow-sm overflow-hidden min-w-[320px] justify-center">
+                                <div className="flex-1 flex flex-col items-center border-r border-pink-50 px-4 text-center">
+                                    <span className="text-[8px] font-black text-stone-400 uppercase tracking-widest mb-1 text-center w-full">PHÂN LOẠI</span>
                                     <select value={deptFilter} onChange={e => setDeptFilter(e.target.value)} className="bg-transparent border-none text-[10px] font-black outline-none text-[#5D4037] uppercase tracking-widest appearance-none cursor-pointer text-center w-full">
                                         <option value="All">TẤT CẢ</option>
                                         <option value="Vùng">VÙNG</option>
@@ -382,8 +381,8 @@
                                         <option value="khác">KHÁC</option>
                                     </select>
                                 </div>
-                                <div className="flex-1 flex flex-col items-center px-4">
-                                    <span className="text-[8px] font-black text-stone-400 uppercase tracking-widest mb-1 text-center">ĐẦU RA</span>
+                                <div className="flex-1 flex flex-col items-center px-4 text-center">
+                                    <span className="text-[8px] font-black text-stone-400 uppercase tracking-widest mb-1 text-center w-full">ĐẦU RA</span>
                                     <select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} className="bg-transparent border-none text-[10px] font-black outline-none text-[#5D4037] uppercase tracking-widest appearance-none cursor-pointer text-center w-full">
                                         <option value="All">TẤT CẢ</option>
                                         <option value="Chưa làm">CHƯA LÀM</option>
@@ -396,40 +395,40 @@
                         </div>
 
                         {showForm && (
-                            <div className="bg-white border border-pink-50 rounded-[3rem] p-10 mb-12 shadow-xl animate-in zoom-in-95 duration-500 max-w-6xl mx-auto text-[#5D4037] text-left">
+                            <div className="bg-white border border-pink-50 rounded-[3rem] p-10 mb-12 shadow-xl animate-in zoom-in-95 duration-500 max-w-6xl mx-auto text-[#5D4037] text-center">
                                 <form onSubmit={handleAddTask} className="space-y-10">
                                     <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                                         <div className="space-y-6">
-                                            <p className="text-[10px] font-black uppercase border-b border-pink-50 pb-2 flex items-center gap-2 tracking-widest text-[#5D4037]"><Icon name="Layout" size={14}/> PHÂN LOẠI & PROJECT</p>
-                                            <div className="flex flex-col gap-2"><label className="text-[10px] font-black uppercase ml-5 tracking-tight">Tên công việc 🌵</label><input required value={formData.taskName} onChange={e => setFormData({...formData, taskName: e.target.value})} className="soft-pastel-input" placeholder="Viết việc cần làm..." /></div>
-                                            <div className="flex flex-col gap-2"><label className="text-[10px] font-black uppercase ml-5 tracking-tight">Phân loại 🐣</label><select value={formData.classification} onChange={e => setFormData({...formData, classification: e.target.value})} className="soft-pastel-select"><option value="Regions">Regions</option><option value="Vùng">Vùng</option><option value="Cá nhân">Cá nhân</option><option value="khác">Khác</option></select></div>
-                                            <div className="flex flex-col gap-2"><label className="text-[10px] font-black uppercase ml-5 tracking-tight">Project ✨</label><select value={formData.project} onChange={e => setFormData({...formData, project: e.target.value})} className="soft-pastel-select"><option value="Không">Không</option><option value="TITAN F2 - Nhân sự">TITAN F2 - Nhân sự</option><option value="TITAN F2 - Mô hình Giao lấy & Chính sách">TITAN F2 - Mô hình Giao lấy & Chính sách</option><option value="Champion">Champion</option><option value="Khác">Khác</option></select></div>
+                                            <SectionLabel icon={<Icon name="Layout" size={12}/>} label="PHÂN LOẠI & PROJECT" />
+                                            <InputField label="Tên công việc 🌵"><input required value={formData.taskName} onChange={e => setFormData({...formData, taskName: e.target.value})} className="soft-pastel-input" placeholder="Viết việc cần làm..." /></InputField>
+                                            <InputField label="Phân loại 🐣"><select value={formData.classification} onChange={e => setFormData({...formData, classification: e.target.value})} className="soft-pastel-select"><option value="Regions">Regions</option><option value="Vùng">Vùng</option><option value="Cá nhân">Cá nhân</option><option value="khác">Khác</option></select></InputField>
+                                            <InputField label="Project ✨"><select value={formData.project} onChange={e => setFormData({...formData, project: e.target.value})} className="soft-pastel-select"><option value="Không">Không</option><option value="TITAN F2 - Nhân sự">TITAN F2 - Nhân sự</option><option value="TITAN F2 - Mô hình Giao lấy & Chính sách">TITAN F2 - Mô hình Giao lấy & Chính sách</option><option value="Champion">Champion</option><option value="Khác">Khác</option></select></InputField>
                                         </div>
                                         <div className="space-y-6">
-                                            <p className="text-[10px] font-black uppercase border-b border-pink-50 pb-2 flex items-center gap-2 tracking-widest text-[#5D4037]"><Icon name="RefreshCcw" size={14}/> NHÓM & THỜI GIAN</p>
-                                            <div className="flex flex-col gap-2"><label className="text-[10px] font-black uppercase ml-5 tracking-tight">Nhóm công việc 📂</label><select value={formData.workGroup} onChange={e => setFormData({...formData, workGroup: e.target.value})} className="soft-pastel-select"><option value="Hoạt động cốt lõi & Hỗ trợ">Hoạt động cốt lõi & Hỗ trợ</option><option value="Quản trị & Giao tiếp">Quản trị & Giao tiếp</option><option value="Lập kế hoạch & Phân tích">Lập kế hoạch & Phân tích</option><option value="Đào tạo & Phát triển">Đào tạo & Phát triển</option></select></div>
-                                            <div className="flex flex-col gap-2"><label className="text-[10px] font-black uppercase ml-5 tracking-tight">Loại hình 🔄</label><select value={formData.taskType} onChange={e => setFormData({...formData, taskType: e.target.value})} className="soft-pastel-select"><option value="Phát sinh">Phát sinh</option><option value="Định kỳ">Định kỳ</option></select></div>
-                                            <div className="flex flex-col gap-2"><label className="text-[10px] font-black uppercase ml-5 tracking-tight">Deadline 🗓️</label><input type="date" value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} className="soft-pastel-input bg-white text-[#5D4037]" /></div>
+                                            <SectionLabel icon={<Icon name="RefreshCcw" size={12}/>} label="NHÓM & THỜI GIAN" />
+                                            <InputField label="Nhóm công việc 📂"><select value={formData.workGroup} onChange={e => setFormData({...formData, workGroup: e.target.value})} className="soft-pastel-select"><option value="Hoạt động cốt lõi & Hỗ trợ">Hoạt động cốt lõi & Hỗ trợ</option><option value="Quản trị & Giao tiếp">Quản trị & Giao tiếp</option><option value="Lập kế hoạch & Phân tích">Lập kế hoạch & Phân tích</option><option value="Đào tạo & Phát triển">Đào tạo & Phát triển</option></select></InputField>
+                                            <InputField label="Loại hình 🔄"><select value={formData.taskType} onChange={e => setFormData({...formData, taskType: e.target.value})} className="soft-pastel-select"><option value="Phát sinh">Phát sinh</option><option value="Định kỳ">Định kỳ</option></select></InputField>
+                                            <InputField label="Deadline 🗓️"><input type="date" value={formData.deadline} onChange={e => setFormData({...formData, deadline: e.target.value})} className="soft-pastel-input bg-white text-[#5D4037]" /></InputField>
                                         </div>
                                         <div className="space-y-6">
-                                            <p className="text-[10px] font-black uppercase border-b border-pink-50 pb-2 flex items-center gap-2 tracking-widest text-[#5D4037]"><Icon name="Target" size={14}/> ƯU TIÊN & TRẠNG THÁI</p>
-                                            <div className="flex flex-col gap-2"><label className="text-[10px] font-black uppercase ml-5 tracking-tight">Ưu tiên ⭐️</label><select value={formData.priority} onChange={e => setFormData({...formData, priority: e.target.value})} className="soft-pastel-select font-bold text-[#5D4037]"><option value="1 - Urgent">🔥 1 - Urgent (Rất gấp)</option><option value="2 - Plan">📅 2 - Plan (Kế hoạch)</option><option value="3 - Delegate">🤝 3 - Delegate (Ủy quyền)</option><option value="4 - Ignore">☁️ 4 - Ignore (Bỏ qua)</option></select></div>
-                                            <div className="flex flex-col gap-2"><label className="text-[10px] font-black uppercase ml-5 tracking-tight">Trạng thái 🎯</label><select value={formData.outcomeStatus} onChange={e => setFormData({...formData, outcomeStatus: e.target.value})} className="soft-pastel-select font-black text-[#5D4037]"><option value="Chưa làm">⚪ Chưa làm</option><option value="Đang làm">⏳ Đang làm</option><option value="Hoàn thành">✅ Hoàn thành</option><option value="Không làm">🚫 Không làm</option></select></div>
-                                            {formData.taskType === 'Định kỳ' && <div className="flex flex-col gap-2 animate-in slide-in-from-top-2 duration-300"><label className="text-[10px] font-black uppercase ml-5 text-rose-500 font-black tracking-tight text-[#5D4037]">Ngày nhắc lại sau 🔔</label><input type="date" value={formData.nextOccurrence} onChange={e => setFormData({...formData, nextOccurrence: e.target.value})} className="soft-pastel-input bg-white border-rose-200 text-[#5D4037]" /></div>}
+                                            <SectionLabel icon={<Icon name="Layout" size={12}/>} label="ƯU TIÊN & TRẠNG THÁI" />
+                                            <InputField label="Ưu tiên ⭐️"><select value={formData.priority} onChange={e => setFormData({...formData, priority: e.target.value})} className="soft-pastel-select font-bold text-[#5D4037] text-center"><option value="1 - Urgent">🔥 1 - Urgent (Rất gấp)</option><option value="2 - Plan">📅 2 - Plan (Kế hoạch)</option><option value="3 - Delegate">🤝 3 - Delegate (Ủy quyền)</option><option value="4 - Ignore">☁️ 4 - Ignore (Bỏ qua)</option></select></InputField>
+                                            <InputField label="Trạng thái 🎯"><select value={formData.outcomeStatus} onChange={e => setFormData({...formData, outcomeStatus: e.target.value})} className="soft-pastel-select font-black text-[#5D4037] text-center"><option value="Chưa làm">⚪ Chưa làm</option><option value="Đang làm">⏳ Đang làm</option><option value="Hoàn thành">✅ Hoàn thành</option><option value="Không làm">🚫 Không làm</option></select></InputField>
+                                            {formData.taskType === 'Định kỳ' && <div className="flex flex-col gap-2 animate-in slide-in-from-top-2 duration-300"><label className="text-[10px] font-black uppercase text-rose-500 font-black tracking-tight text-center">Ngày nhắc lại sau 🔔</label><input type="date" value={formData.nextOccurrence} onChange={e => setFormData({...formData, nextOccurrence: e.target.value})} className="soft-pastel-input bg-white border-rose-200 text-[#5D4037]" /></div>}
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-10 pt-8 border-t border-stone-100 text-[#5D4037]">
                                         <div className="space-y-6">
-                                            <div className="grid grid-cols-2 gap-4 text-center">
-                                                <div className="flex flex-col gap-2"><label className="text-[10px] font-black uppercase ml-5 tracking-tight text-center">PIC👤</label><input value={formData.pic} onChange={e => setFormData({...formData, pic: e.target.value})} className="soft-pastel-input text-[#5D4037] text-center" placeholder="Tên PIC..." /></div>
-                                                <div className="flex flex-col gap-2"><label className="text-[10px] font-black uppercase ml-5 tracking-tight text-center">Link tài liệu 🔗</label><input type="url" value={formData.relevantLink} onChange={e => setFormData({...formData, relevantLink: e.target.value})} className="soft-pastel-input text-[#5D4037] text-center" placeholder="Dán link..." /></div>
+                                            <div className="grid grid-cols-2 gap-4">
+                                                <div className="flex flex-col gap-2 items-center"><label className="text-[10px] font-black uppercase tracking-tight text-center">PIC👤</label><input value={formData.pic} onChange={e => setFormData({...formData, pic: e.target.value})} className="soft-pastel-input text-[#5D4037] text-center" placeholder="Tên PIC..." /></div>
+                                                <div className="flex flex-col gap-2 items-center"><label className="text-[10px] font-black uppercase tracking-tight text-center">Link tài liệu 🔗</label><input type="url" value={formData.relevantLink} onChange={e => setFormData({...formData, relevantLink: e.target.value})} className="soft-pastel-input text-[#5D4037] text-center" placeholder="Dán link..." /></div>
                                             </div>
                                             <div className="flex gap-4 items-end justify-center">
-                                                <div className="flex flex-col gap-2 flex-1"><label className="text-[10px] font-black uppercase ml-5 tracking-tight text-center">Bắt đầu 🕓</label><input type="date" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} className="soft-pastel-input text-[11px] text-[#5D4037]" /></div>
-                                                <div className="flex flex-col gap-2 flex-1"><label className="text-[10px] font-black uppercase ml-5 tracking-tight text-center">Giờ bắt đầu</label><div className="flex gap-2"><input type="time" value={formData.startTime} onChange={e => setFormData({...formData, startTime: e.target.value})} className="soft-pastel-input text-[11px] flex-1 text-[#5D4037]" /><button type="button" onClick={() => setFormData({...formData, ...getNow()})} className="bg-pink-50 p-2 rounded-xl text-pink-500 hover:bg-pink-100 transition-colors"><Icon name="RefreshCcw" size={16}/></button></div></div>
+                                                <div className="flex flex-col gap-2 flex-1 items-center"><label className="text-[10px] font-black uppercase tracking-tight text-center">Bắt đầu 🕓</label><input type="date" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} className="soft-pastel-input text-[11px] text-[#5D4037] text-center" /></div>
+                                                <div className="flex flex-col gap-2 flex-1 items-center"><label className="text-[10px] font-black uppercase tracking-tight text-center">Giờ bắt đầu</label><div className="flex gap-2 w-full"><input type="time" value={formData.startTime} onChange={e => setFormData({...formData, startTime: e.target.value})} className="soft-pastel-input text-[11px] flex-1 text-[#5D4037] text-center" /><button type="button" onClick={() => setFormData({...formData, ...getNow()})} className="bg-pink-50 p-2 rounded-xl text-pink-500 hover:bg-pink-100 transition-colors"><Icon name="RefreshCcw" size={16}/></button></div></div>
                                             </div>
                                         </div>
-                                        <div className="flex flex-col gap-2 text-center"><label className="text-[10px] font-black text-[#5D4037] uppercase ml-5 tracking-tight text-center">Ghi chú chi tiết 📝</label><textarea rows="5" value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} className="soft-pastel-input resize-none h-full text-[#5D4037]" placeholder="Nhunz lưu ý thêm gì không?..." /></div>
+                                        <div className="flex flex-col gap-2 items-center"><label className="text-[10px] font-black text-[#5D4037] uppercase tracking-tight text-center">Ghi chú chi tiết 📝</label><textarea rows="5" value={formData.notes} onChange={e => setFormData({...formData, notes: e.target.value})} className="soft-pastel-input resize-none h-full text-[#5D4037]" placeholder="Nhunz lưu ý thêm gì không?..." /></div>
                                     </div>
                                     <button type="submit" className="w-full bg-[#FFB7C5] text-[#5D4037] font-black py-6 rounded-[2.5rem] shadow-xl uppercase text-xl hover:bg-[#FFA4B5] transition-all active:scale-95 tracking-widest">LƯU CHECKLIST 🎀</button>
                                 </form>
@@ -504,7 +503,7 @@
                             ))}
                         </div>
                     </main>
-                    <footer className="mt-20 text-center text-stone-300 uppercase font-black text-[9px] tracking-[0.4em] pb-10">Created for Nhunz with Love • Master Edition v17.7</footer>
+                    <footer className="mt-20 text-center text-stone-300 uppercase font-black text-[9px] tracking-[0.4em] pb-10">Created for Nhunz with Love • Master Edition v17.6</footer>
                 </div>
             );
         };
@@ -514,6 +513,16 @@
                 <span className="text-[10px] font-black uppercase opacity-70 tracking-widest">{label}</span>
                 <span className="text-4xl font-black block mt-1">{value}</span>
             </div>
+        );
+
+        const SectionLabel = ({ icon, label }) => (
+            <p className="text-[10px] font-black uppercase border-b border-pink-50 pb-2 flex items-center justify-center gap-2 tracking-widest text-[#5D4037]">
+                {icon} {label}
+            </p>
+        );
+
+        const InputField = ({ label, children }) => (
+            <div className="flex flex-col gap-2 items-center"><label className="text-[10px] font-black uppercase tracking-tight text-center">{label}</label>{children}</div>
         );
 
         const root = ReactDOM.createRoot(document.getElementById('root'));
